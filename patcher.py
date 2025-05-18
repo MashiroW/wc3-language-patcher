@@ -48,75 +48,105 @@ LANGUAGE_CODES = [
 class CustomMainWindow(QMainWindow):
     def __init__(self, EditorOpenGLwidget):
         super().__init__()
-        # Keep reference to original parent window
-        self.editor_window = EditorOpenGLwidget.parent().window()  
-        # Reparent while maintaining context
-        EditorOpenGLwidget.setParent(self)  
-
-
         self.setWindowTitle("WC3 Localization Patcher")
         self.setGeometry(100, 100, 1200, 800)
+        self.setMinimumSize(800, 600)  # Prevent window from becoming too small
         
         self.settings = QSettings("Mashiro", "WC3LocalizationPatcher")
         
+        # Main widget and layout
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
+        main_layout = QVBoxLayout(main_widget)
+        main_layout.setContentsMargins(5, 5, 5, 5)
         
-        splitter = QSplitter(Qt.Horizontal)
+        # Create splitter with proper configuration
+        self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.setHandleWidth(8)
         
+        # OpenGL Widget setup
         self.opengl_widget = EditorOpenGLwidget
-        splitter.addWidget(self.opengl_widget)
+        self.opengl_widget.setMinimumSize(400, 400)
+        self.splitter.addWidget(self.opengl_widget)
         
+        # Right panel setup
         right_panel = QWidget()
-        right_layout = QVBoxLayout()
-        right_panel.setLayout(right_layout)
+        right_panel.setMinimumWidth(300)
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(5, 5, 5, 5)
+        right_layout.setSpacing(10)
         
+        # Language Selection Group
+        lang_group = QGroupBox("Language Configuration")
         lang_layout = QHBoxLayout()
+        lang_layout.addWidget(QLabel("Language:"), 0)
         self.lang_combo = QComboBox()
         self.lang_combo.addItems(LANGUAGE_CODES)
-        lang_layout.addWidget(self.lang_combo)
-        
+        lang_layout.addWidget(self.lang_combo, 1)  # Stretch factor 1
         self.add_button = QPushButton("+")
-        self.add_button.clicked.connect(self.add_language)
-        lang_layout.addWidget(self.add_button)
-        
+        self.add_button.setFixedSize(25, 25)
         self.remove_button = QPushButton("-")
-        self.remove_button.clicked.connect(self.remove_language)
+        self.remove_button.setFixedSize(25, 25)
+        lang_layout.addWidget(self.add_button)
         lang_layout.addWidget(self.remove_button)
+        lang_group.setLayout(lang_layout)
+        right_layout.addWidget(lang_group)
         
-        right_layout.addLayout(lang_layout)
-        
+        # Language Table
         self.lang_table = QTableWidget()
         self.lang_table.setColumnCount(4)
         self.lang_table.setHorizontalHeaderLabels(["Language", "Ignore", "MPQ Path", "CASC Path"])
-        self.lang_table.horizontalHeader().setStretchLastSection(True)
+        self.lang_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.lang_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.lang_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.lang_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        self.lang_table.verticalHeader().setVisible(False)
         self.lang_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.lang_table.setSelectionMode(QTableWidget.SingleSelection)
         right_layout.addWidget(self.lang_table)
         
+        # Patch Button
         self.patch_button = QPushButton("BUILD PATCH")
-        self.patch_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; font-size: 16px;")
-        self.patch_button.clicked.connect(self.patch_languages)
+        self.patch_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50; 
+                color: white; 
+                font-weight: bold; 
+                font-size: 16px;
+                padding: 10px;
+                border-radius: 5px;
+            }
+            QPushButton:hover { background-color: #45a049; }
+        """)
         right_layout.addWidget(self.patch_button)
         
+        # Console Log
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
+        self.console_log.setMinimumHeight(100)
         right_layout.addWidget(self.console_log)
         
-        splitter.addWidget(right_panel)
-        splitter.setSizes([700, 500])
+        # Add right panel to splitter
+        self.splitter.addWidget(right_panel)
         
-        main_layout = QVBoxLayout()
-        main_layout.addWidget(splitter)
-        main_widget.setLayout(main_layout)
+        # Configure splitter stretch factors
+        self.splitter.setStretchFactor(0, 3)
+        self.splitter.setStretchFactor(1, 1)
         
-        self.base_path = os.path.dirname(os.path.abspath(__file__))
-        self.mpq_base_path = os.path.join(self.base_path, "MPQ_Data")
-        self.casc_base_path = os.path.join(self.base_path, "CASC_Data")
+        # Add splitter to main layout
+        main_layout.addWidget(self.splitter)
         
-        os.makedirs(self.mpq_base_path, exist_ok=True)
-        os.makedirs(self.casc_base_path, exist_ok=True)
+        # Initialize paths and data
+        self.base_path = Path(__file__).parent.absolute()
+        self.mpq_base_path = self.base_path / "MPQ_Data"
+        self.casc_base_path = self.base_path / "CASC_Data"
         
+        # Create directories if needed
+        self.mpq_base_path.mkdir(exist_ok=True)
+        self.casc_base_path.mkdir(exist_ok=True)
+        
+        # Load saved settings
         self.selected_languages = self.detect_existing_languages()
         saved_langs = self.settings.value("selected_languages", [])
         for lang_data in saved_langs:
@@ -125,6 +155,21 @@ class CustomMainWindow(QMainWindow):
                 self.selected_languages.append(tuple(lang_data))
         
         self.update_lang_table()
+        
+        # Connect signals
+        self.add_button.clicked.connect(self.add_language)
+        self.remove_button.clicked.connect(self.remove_language)
+        self.patch_button.clicked.connect(self.patch_languages)
+
+    def resizeEvent(self, event):
+        """Handle window resizing while maintaining proportions"""
+        super().resizeEvent(event)
+        # Maintain 70/30 split ratio
+        total_width = self.splitter.width()
+        self.splitter.setSizes([
+            int(total_width * 0.7), 
+            int(total_width * 0.3)
+        ])
 
     def detect_existing_languages(self):
         detected_languages = []
