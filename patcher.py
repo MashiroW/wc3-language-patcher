@@ -1,18 +1,43 @@
+# Standard Library
 import sys
 import os
+import json
 import math
-import numpy as np
+import random
 import time
 from pathlib import Path
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                             QPushButton, QComboBox, QTableWidget, QTableWidgetItem, 
-                             QTextEdit, QSplitter, QCheckBox, QMessageBox, QFileDialog, QHeaderView)
-from PyQt5.QtCore import Qt, QTimer, QSettings, QTime
-from PyQt5.QtGui import QSurfaceFormat, QColor
+from collections import OrderedDict
+
+# Third-party
+import numpy as np
+from PIL import Image
+
+# PyQt5
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtOpenGL import QGLWidget
+
+# OpenGL
 from OpenGL.GL import *
 from OpenGL.GLU import *
-from PyQt5.QtOpenGL import QGLWidget
 from OpenGL.arrays import vbo
+
+# Get current script's directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Add to Python path (insert at beginning for priority)
+sys.path.insert(0, current_dir)
+
+try:
+    from OpenGLWorldEditor import OpenGLWidget, ModelObject, LightObject, StarBackground, MainWindow
+    print("Successfully imported all classes!")
+except ImportError as e:
+    print(f"Import failed: {e}")
+    print(f"Current sys.path: {sys.path}")
+    print(f"Files in directory: {os.listdir(current_dir)}")
+
+os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
 
 # Language codes list (ISO 639-1)
 LANGUAGE_CODES = [
@@ -20,315 +45,15 @@ LANGUAGE_CODES = [
     "ar", "hi", "bn", "pa", "ta", "te", "mr", "ur", "tr", "nl"
 ]
 
-class TextModel:
-    def __init__(self):
-        self.vbo = None
-        self.nbo = None
-        self.ibo = None
-        self.num_indices = 0
-        
-    def load_from_obj(self, obj_content):
-        vertices = []
-        normals = []
-        faces = []
-        
-        lines = obj_content.split('\n')
-        for line in lines:
-            if line.startswith('v '):
-                vertices.append(list(map(float, line[2:].strip().split())))
-            elif line.startswith('vn '):
-                normals.append(list(map(float, line[3:].strip().split())))
-            elif line.startswith('f '):
-                face = []
-                for v in line[2:].strip().split():
-                    parts = v.split('/')
-                    vertex_index = int(parts[0]) - 1 if parts[0] else -1
-                    normal_index = int(parts[2]) - 1 if len(parts) > 2 and parts[2] else -1
-                    face.append((vertex_index, normal_index))
-                faces.append(face)
-        
-        # Convert to numpy arrays
-        vertices = np.array(vertices, dtype='float32')
-        normals = np.array(normals, dtype='float32')
-        
-        # Create index array
-        indices = []
-        for face in faces:
-            for vertex_idx, normal_idx in face:
-                indices.append(vertex_idx)
-        indices = np.array(indices, dtype='uint32')
-        
-        # Create VBOs
-        self.vbo = vbo.VBO(vertices)
-        self.nbo = vbo.VBO(normals)
-        self.ibo = vbo.VBO(indices, target=GL_ELEMENT_ARRAY_BUFFER)
-        self.num_indices = len(indices)
-    
-    def render(self):
-        if not self.vbo or not self.nbo or not self.ibo:
-            return
-            
-        self.vbo.bind()
-        glEnableClientState(GL_VERTEX_ARRAY)
-        glVertexPointer(3, GL_FLOAT, 0, self.vbo)
-        
-        self.nbo.bind()
-        glEnableClientState(GL_NORMAL_ARRAY)
-        glNormalPointer(GL_FLOAT, 0, self.nbo)
-        
-        self.ibo.bind()
-        glDrawElements(GL_TRIANGLES, self.num_indices, GL_UNSIGNED_INT, None)
-        
-        self.ibo.unbind()
-        self.nbo.unbind()
-        self.vbo.unbind()
-        glDisableClientState(GL_VERTEX_ARRAY)
-        glDisableClientState(GL_NORMAL_ARRAY)
-
-class OpenGLWidget(QGLWidget):
-    def __init__(self, parent=None):
-        super(OpenGLWidget, self).__init__(parent)
-        self.rotation = 0
-        self.text_rotation = 0
-        self.text_offset = 0
-        self.text_direction = 0.01
-        self.wc3_model = TextModel()
-        self.mashiro_model = TextModel()
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_animation)
-        self.timer.start(16)  # ~60 FPS
-        self.last_time = time.time()
-        self.frame_count = 0
-        self.fps = 0
-        self.cube_dl = None
-
-    def initializeGL(self):
-        glEnable(GL_DEPTH_TEST)
-        glDepthFunc(GL_LEQUAL)
-        glEnable(GL_CULL_FACE)
-        glCullFace(GL_BACK)
-        
-        glEnable(GL_LIGHTING)
-        glEnable(GL_LIGHT0)
-        glLightfv(GL_LIGHT0, GL_POSITION, [1, 1, 1, 0])
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, [1.0, 1.0, 1.0, 1.0])
-        glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, [0.2, 0.5, 0.8, 1.0])
-        glClearColor(0.1, 0.1, 0.2, 1.0)
-        
-        # Load WC3 model
-        wc3_obj = """
-v 0.0 0.0 0.0
-v 0.3 1.0 0.0
-v 0.7 1.0 0.0
-v 1.0 0.0 0.0
-v 0.0 0.0 0.1
-v 0.3 1.0 0.1
-v 0.7 1.0 0.1
-v 1.0 0.0 0.1
-vn 0.0 0.0 -1.0
-vn 0.0 0.0 1.0
-vn -0.8 -0.6 0.0
-vn 0.8 -0.6 0.0
-f 1//1 2//1 3//1
-f 1//1 3//1 4//1
-f 5//2 6//2 7//2
-f 5//2 7//2 8//2
-f 1//3 5//3 2//3
-f 2//3 6//3 3//3
-f 3//3 7//3 4//3
-f 4//3 8//3 1//3
-v 1.5 0.0 0.0
-v 1.8 0.0 0.0
-v 1.8 1.0 0.0
-v 1.5 1.0 0.0
-v 1.5 0.0 0.1
-v 1.8 0.0 0.1
-v 1.8 1.0 0.1
-v 1.5 1.0 0.1
-vn 0.0 0.0 -1.0
-vn 0.0 0.0 1.0
-vn -1.0 0.0 0.0
-vn 1.0 0.0 0.0
-f 9//1 10//1 11//1
-f 9//1 11//1 12//1
-f 13//2 14//2 15//2
-f 13//2 15//2 16//2
-f 9//3 13//3 10//3
-f 10//3 14//3 11//3
-f 11//3 15//3 12//3
-f 12//3 16//3 9//3
-v 2.1 0.0 0.0
-v 2.4 0.0 0.0
-v 2.4 1.0 0.0
-v 2.1 1.0 0.0
-v 2.1 0.0 0.1
-v 2.4 0.0 0.1
-v 2.4 1.0 0.1
-v 2.1 1.0 0.1
-vn 0.0 0.0 -1.0
-vn 0.0 0.0 1.0
-f 17//1 18//1 19//1
-f 17//1 19//1 20//1
-f 21//2 22//2 23//2
-f 21//2 23//2 24//2
-f 17//3 21//3 18//3
-f 18//3 22//3 19//3
-f 19//3 23//3 20//3
-f 20//3 24//3 17//3
-"""
-        self.wc3_model.load_from_obj(wc3_obj)
-
-        # Load Mashiro model from file
-        obj_path = os.path.join(os.path.dirname(__file__), "models", "by_mashiro.obj")
-        if os.path.exists(obj_path):
-            try:
-                with open(obj_path, 'r') as f:
-                    obj_content = f.read()
-                self.mashiro_model.load_from_obj(obj_content)
-            except Exception as e:
-                print(f"Error loading OBJ file: {e}")
-                self._create_fallback_mashiro_model()
-        else:
-            print(f"OBJ file not found at: {obj_path}")
-            self._create_fallback_mashiro_model()
-
-        # Create display list for cube
-        self.cube_dl = glGenLists(1)
-        glNewList(self.cube_dl, GL_COMPILE)
-        self._draw_cube_geometry()
-        glEndList()
-
-    def _create_fallback_mashiro_model(self):
-        """Create a simple fallback model if OBJ file is missing"""
-        mashiro_obj = """
-v 0.0 0.0 0.0
-v 0.3 0.0 0.0
-v 0.3 1.0 0.0
-v 0.0 1.0 0.0
-v 0.0 0.0 0.1
-v 0.3 0.0 0.1
-v 0.3 1.0 0.1
-v 0.0 1.0 0.1
-vn 0.0 0.0 -1.0
-vn 0.0 0.0 1.0
-vn -1.0 0.0 0.0
-vn 1.0 0.0 0.0
-f 1//1 2//1 3//1
-f 1//1 3//1 4//1
-f 5//2 6//2 7//2
-f 5//2 7//2 8//2
-f 1//3 5//3 2//3
-f 2//3 6//3 3//3
-f 3//3 7//3 4//3
-f 4//3 8//3 1//3
-"""
-        self.mashiro_model.load_from_obj(mashiro_obj)
-
-    def _draw_cube_geometry(self):
-        vertices = [
-            [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1],  # Front
-            [-1, -1, -1], [-1, 1, -1], [1, 1, -1], [1, -1, -1],  # Back
-            [-1, 1, -1], [-1, 1, 1], [1, 1, 1], [1, 1, -1],  # Top
-            [-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1],  # Bottom
-            [1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1],  # Right
-            [-1, -1, -1], [-1, -1, 1], [-1, 1, 1], [-1, 1, -1]  # Left
-        ]
-        
-        normals = [
-            [0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, 1],  # Front
-            [0, 0, -1], [0, 0, -1], [0, 0, -1], [0, 0, -1],  # Back
-            [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0],  # Top
-            [0, -1, 0], [0, -1, 0], [0, -1, 0], [0, -1, 0],  # Bottom
-            [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0],  # Right
-            [-1, 0, 0], [-1, 0, 0], [-1, 0, 0], [-1, 0, 0]  # Left
-        ]
-        
-        indices = [
-            0,1,2, 0,2,3,  # Front
-            4,5,6, 4,6,7,  # Back
-            8,9,10, 8,10,11,  # Top
-            12,13,14, 12,14,15,  # Bottom
-            16,17,18, 16,18,19,  # Right
-            20,21,22, 20,22,23  # Left
-        ]
-        
-        glBegin(GL_TRIANGLES)
-        for i in indices:
-            glNormal3fv(normals[i])
-            glVertex3fv(vertices[i])
-        glEnd()
-
-    def resizeGL(self, w, h):
-        glViewport(0, 0, w, h)
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        gluPerspective(45, w/h, 0.1, 100.0)
-        glMatrixMode(GL_MODELVIEW)
-
-    def paintGL(self):
-        current_time = time.time()
-        self.frame_count += 1
-        
-        # Calculate FPS every second
-        if current_time - self.last_time >= 1.0:
-            self.fps = self.frame_count
-            self.frame_count = 0
-            self.last_time = current_time
-            print(f"FPS: {self.fps}")
-            
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        glLoadIdentity()
-        
-        gluLookAt(3, 3, 3, 0, 0, 0, 0, 1, 0)
-        
-        glPushMatrix()
-        glRotatef(self.rotation, 1, 1, 1)
-        glCallList(self.cube_dl)
-        glPopMatrix()
-        
-        glPushMatrix()
-        glTranslatef(0, 1.5, 0)
-        glRotatef(self.text_rotation, 0, 1, 0)
-        glTranslatef(0, self.text_offset, 0)
-        self.render_wc3_text(-1.5, 0, 0, 0.2)
-        
-        glPushMatrix()
-        glTranslatef(0.5, -0.3, 0.5)
-        glRotatef(45, 0, 1, 0)
-        glScalef(0.5, 0.5, 0.5)
-        self.render_mashiro_text(0, 0, 0, 0.01)
-        glPopMatrix()
-        glPopMatrix()
-
-    def render_wc3_text(self, x, y, z, scale):
-        glPushMatrix()
-        glTranslatef(x, y, z)
-        glScalef(scale, scale, scale)
-        glColor3f(0.8, 0.8, 0.2)
-        self.wc3_model.render()
-        glPopMatrix()
-
-    def render_mashiro_text(self, x, y, z, scale):
-        glPushMatrix()
-        glTranslatef(x, y, z)
-        glScalef(scale, scale, scale)
-        glColor3f(0.8, 0.8, 0.2)
-        self.mashiro_model.render()
-        glPopMatrix()
-
-    def update_animation(self):
-        self.rotation = (self.rotation + 1) % 360
-        self.text_rotation = (self.text_rotation + 0.5) % 360
-        
-        self.text_offset += self.text_direction
-        if abs(self.text_offset) > 0.2:
-            self.text_direction *= -1
-            
-        self.update()
-
-class MainWindow(QMainWindow):
-    def __init__(self):
+class CustomMainWindow(QMainWindow):
+    def __init__(self, EditorOpenGLwidget):
         super().__init__()
+        # Keep reference to original parent window
+        self.editor_window = EditorOpenGLwidget.parent().window()  
+        # Reparent while maintaining context
+        EditorOpenGLwidget.setParent(self)  
+
+
         self.setWindowTitle("WC3 Localization Patcher")
         self.setGeometry(100, 100, 1200, 800)
         
@@ -339,8 +64,8 @@ class MainWindow(QMainWindow):
         
         splitter = QSplitter(Qt.Horizontal)
         
-        self.gl_widget = OpenGLWidget()
-        splitter.addWidget(self.gl_widget)
+        self.opengl_widget = EditorOpenGLwidget
+        splitter.addWidget(self.opengl_widget)
         
         right_panel = QWidget()
         right_layout = QVBoxLayout()
@@ -603,16 +328,24 @@ class MainWindow(QMainWindow):
         self.console_log.ensureCursorVisible()
 
 if __name__ == "__main__":
-    # Set OpenGL format
-    fmt = QSurfaceFormat()
-    fmt.setSamples(4)  # 4x MSAA
-    fmt.setSwapInterval(1)  # Enable VSync for smoother rendering
-    QSurfaceFormat.setDefaultFormat(fmt)
-    
-    # Suppress QT_DEVICE_PIXEL_RATIO warning
-    os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
+    if hasattr(Qt, 'AA_EnableHighDpiScaling'):
+        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
+        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
     
     app = QApplication(sys.argv)
-    window = MainWindow()
+    
+    # Initialize editor window FIRST
+    Editorwindow = MainWindow()
+    #Editorwindow.show()
+    
+    # Force OpenGL context activation
+    Editorwindow.opengl_widget.makeCurrent()
+    Editorwindow.opengl_widget.load_scene("test_scene.json")
+    #Editorwindow.hide()  # Optional
+    
+    # Create patcher window with proper context handling
+    window = CustomMainWindow(EditorOpenGLwidget=Editorwindow.opengl_widget)
     window.show()
+    
     sys.exit(app.exec_())
