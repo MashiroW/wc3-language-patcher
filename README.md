@@ -5,7 +5,9 @@
 - 🗣️ **Restore Classic Voices**: Replaces Reforged's controversial voice lines with original MPQ-era audio  
 - 🌍 **Preserve Lost Localizations**: Rescues translations from pre-1.30 versions no longer available  
 - 🧩 **Hybrid Game Experience**: Mixes classic voices with modern gameplay  
-- ⚙️ **Campaign Fixes**: Includes critical fixes for broken maps like the infamous "The Purge" mission  
+- ⚙️ **Campaign Fixes**: Includes critical fixes for broken maps like the infamous "The Purge" mission
+
+https://github.com/user-attachments/assets/90b132c0-647a-48bd-b335-416470b41c62
 
 ## Setup Guide  
 ### Highly recommended tools for everyone  
