@@ -1,6 +1,8 @@
 # WarCraft 3 Legacy Voice & Localization Patcher  
 *Restore original voices and texts in modern WC3 versions (1.30+)*  
 
+![Comp 2_00000](https://github.com/user-attachments/assets/f69b87c8-82a0-4faf-876b-f26e9bb3fffd)
+
 ## Why This Tool?  
 - 🗣️ **Restore Classic Voices**: Replaces Reforged's controversial voice lines with original MPQ-era audio  
 - 🌍 **Preserve Lost Localizations**: Rescues translations from pre-1.30 versions no longer available  
