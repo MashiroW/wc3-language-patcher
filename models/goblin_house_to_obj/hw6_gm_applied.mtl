@@ -1,0 +1,329 @@
+newmtl mat0
+Ns 61.00304
+Ka 1 1 1
+Kd 0.11261 0.09284 0.07646
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat1
+Ns 117.90534
+Ka 1 1 1
+Kd 0.10462 0.04092 0.007
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat10
+Ns 96.99142
+Ka 1 1 1
+Kd 0.59048 0.38279 0.02814
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat12
+Ns 250
+Ka 1 1 1
+Kd 0.15049 0.15049 0.15049
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat13
+Ns 250
+Ka 1 1 1
+Kd 0.09554 0.06337 0.00387
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat14
+Ns 250
+Ka 1 1 1
+Kd 0.48109 0.01227 0.01227
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat15
+Ns 26.45521
+Ka 1 1 1
+Kd 0.45231 0.00454 0.00454
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat16
+Ns 26.45521
+Ka 1 1 1
+Kd 0.45231 0.21251 0.0066
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat17
+Ns 26.45521
+Ka 1 1 1
+Kd 0.31854 0.16101 0.01044
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat18
+Ns 26.45521
+Ka 1 1 1
+Kd 0.41836 0.22871 0.02662
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat19
+Ns 26.45521
+Ka 1 1 1
+Kd 0.41836 0.24712 0.06466
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat2
+Ns 117.90534
+Ka 1 1 1
+Kd 0.10462 0.04402 0.01175
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat20
+Ns 250
+Ka 1 1 1
+Kd 0.49592 0.31681 0.01091
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat21
+Ns 0
+Ka 1 1 1
+Kd 0.19616 0.18008 0.09567
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat22
+Ns 0
+Ka 1 1 1
+Kd 0.19616 0.18008 0.09567
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat23
+Ns 316.04868
+Ka 1 1 1
+Kd 0.02153 0.02621 0.07671
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat24
+Ns 26.45521
+Ka 1 1 1
+Kd 0.08064 0.00607 0.22254
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat25
+Ns 0
+Ka 1 1 1
+Kd 0.02288 0.02288 0.02288
+Ks 0 0 0
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 1
+
+newmtl mat27
+Ns 531.31812
+Ka 1 1 1
+Kd 0.08399 0.15777 0.25854
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat28
+Ns 250
+Ka 1 1 1
+Kd 0.27773 0.27773 0.27773
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat29
+Ns 762.9917
+Ka 1 1 1
+Kd 1 0.0653 0.0653
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat3
+Ns 250
+Ka 1 1 1
+Kd 0.00729 0.06596 0.01187
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat30
+Ns 661.38043
+Ka 1 1 1
+Kd 0.02944 0.22254 0.1643
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat31
+Ns 431.15839
+Ka 1 1 1
+Kd 0.32566 0.00473 0.00473
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat32
+Ns 73.4867
+Ka 1 1 1
+Kd 0.4878 0.30585 0.07491
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat33
+Ns 109.77645
+Ka 1 1 1
+Kd 0.36263 0.29135 0.11558
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat34
+Ns 117.90534
+Ka 1 1 1
+Kd 0.14152 0.08256 0.01957
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat4
+Ns 250
+Ka 1 1 1
+Kd 0.05075 0.12452 0.00964
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat5
+Ns 269.34195
+Ka 1 1 1
+Kd 0.35925 0.24412 0.02954
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat6
+Ns 55.19669
+Ka 1 1 1
+Kd 0.09563 0.18965 0.03793
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat7
+Ns 316.04868
+Ka 1 1 1
+Kd 0.34094 0.34094 0.34094
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat8
+Ns 250
+Ka 1 1 1
+Kd 0.24406 0.29481 0.0102
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
+
+newmtl mat9
+Ns 250
+Ka 1 1 1
+Kd 0.65012 0.40423 0.00807
+Ks 0.5 0.5 0.5
+Ke 0 0 0
+Ni 1.45
+d 1
+illum 2
