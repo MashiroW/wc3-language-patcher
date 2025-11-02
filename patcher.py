@@ -47,7 +47,7 @@ os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
 
 # Language codes list (ISO 639-1)
 LANGUAGE_CODES = sorted([
-    "enUS", "esES", "frFR", "deDE", "itIT", "plPL", "ruRU", "zhCN", "koKR", "csCZ"
+    "enUS", "esES", "frFR", "deDE", "itIT", "plPL", "ruRU", "zhCN", "zhTW", "koKR", "csCZ"
 ])
 
 from PyQt5.QtCore import QThread, pyqtSignal
@@ -355,7 +355,7 @@ class CustomMainWindow(QMainWindow):
                     # Only proceed if it's a valid language code
                     if lang_code in LANGUAGE_CODES:
                         mpq_path = os.path.join(self.mpq_base_path, item)
-                        required_subdirs = {"war3.mpq", "war3x.mpq", "war3local.mpq", "War3Path.mpq"}
+                        required_subdirs = {"war3.mpq", "war3x.mpq", "war3xlocal.mpq", "War3Patch.mpq"}
                         # Check if all required subdirectories exist
                         if all(os.path.exists(os.path.join(mpq_path, subdir)) for subdir in required_subdirs):
                             rel_mpq_path = os.path.relpath(mpq_path, self.base_path)
@@ -393,7 +393,7 @@ class CustomMainWindow(QMainWindow):
             mpq_path = os.path.join(self.mpq_base_path, f"{lang}-MPQ")
             casc_path = os.path.join(self.casc_base_path, f"{lang.lower()}.w3mod")
             
-            mpq_subdirs = ["war3.mpq", "war3x.mpq", "war3local.mpq", "War3Path.mpq"]
+            mpq_subdirs = ["war3.mpq", "war3x.mpq", "war3xlocal.mpq", "War3Patch.mpq"]
             for subdir in mpq_subdirs:
                 full_path = os.path.join(mpq_path, subdir)
                 os.makedirs(full_path, exist_ok=True)
