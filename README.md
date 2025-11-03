@@ -15,13 +15,16 @@ https://github.com/user-attachments/assets/a23cb941-a369-4feb-b027-e22366cd5baf
 
 ---
 
+## Youtube Presentation of this Project (dubbed in English and French)
+[![Comment j’ai empêché Warcraft 3 de devenir un Lost Media](https://img.youtube.com/vi/pX56LJcSL8Y/maxresdefault.jpg)](https://youtu.be/pX56LJcSL8Y)
+- [Click this link or the picture to watch the video](https://youtu.be/pX56LJcSL8Y) 
+
 ## Setup Guide
 
 ### Highly recommended tools for everyone
 (⚠️ Your browser might warn you because these two websites are http)
 - [MPQ Editor](http://www.zezula.net/en/mpq/download.html) 
 - [CASCView](http://www.zezula.net/en/mpq/download.html)
-
 
 ### Build from Source
 1. **Install Requirements**
