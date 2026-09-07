@@ -1,6 +1,6 @@
 # WarCraft 3 Legacy Voice & Localization Patcher  
 _Restore original voices and texts in modern WC3 versions (1.30+)_
-<img width="2000" height="601" alt="Comp 2_00000" src="https://github.com/user-attachments/assets/1ba6303e-2257-4189-ab41-17715a30a6c7" />
+![Comp 2_00000](https://github.com/user-attachments/assets/1ba6303e-2257-4189-ab41-17715a30a6c7)
 
 ---
 
