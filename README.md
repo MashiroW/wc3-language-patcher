@@ -23,14 +23,17 @@ https://github.com/user-attachments/assets/a23cb941-a369-4feb-b027-e22366cd5baf
 
 ### Highly recommended tools for everyone
 (⚠️ Your browser might warn you because these two websites are http)
-- [MPQ Editor](http://www.zezula.net/en/mpq/download.html) 
-- [CASCView](http://www.zezula.net/en/mpq/download.html)
+- [MPQ Editor](http://www.zezula.net/en/mpq/download.html)
+- [CASCView](http://www.zezula.net/en/casc/main.html)
 
 ### Build from Source
-1. **Install Requirements**
+1. **Install Python**
+   - Download and install [Python 3.10 or higher](https://www.python.org/downloads/)
+   - During installation, check "Add Python to PATH"
+2. **Install Requirements**
    - ```pip install -r requirements.txt```
    
-2. **Prepare UI Engine**
+3. **Prepare UI Engine**
   Place [OpenGLWorldEditor.py](https://github.com/MashiroW/openGL-WorldEditor/blob/main/OpenGLWorldEditor.py) in the project root.
 
 ## Project Structure
