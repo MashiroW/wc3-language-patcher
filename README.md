@@ -23,40 +23,21 @@ https://github.com/user-attachments/assets/a23cb941-a369-4feb-b027-e22366cd5baf
 
 ## Setup Guide
 
-### Highly recommended tools for everyone
-(⚠️ Your browser might warn you because these two websites are http)
-- [MPQ Editor](http://www.zezula.net/en/mpq/download.html) 
-- [CASCView](http://www.zezula.net/en/mpq/download.html)
+### Option A: Windows executable (recommended)
+1. Download `WC3LanguagePatcher-windows.zip` from the Releases page and unzip it anywhere you can write to.
+2. Run `WC3LanguagePatcher.exe`. Nothing else to install: no Python, no MPQ Editor, no API key.
 
-### Build from Source
-1. **Install Requirements**
-   - ```pip install -r requirements.txt```
-   
-2. **Prepare UI Engine**
-  Place [OpenGLWorldEditor.py](https://github.com/MashiroW/openGL-WorldEditor/blob/main/OpenGLWorldEditor.py) in the project root.
+### Option B: run from source (Windows, Linux, macOS)
+1. Install Python 3.12 (64-bit).
+2. `pip install -r requirements.txt`
+3. `python patcher.py`
 
-## Project Structure
-```
-War3-Legacy-Patcher/
-├── MPQ_Data/                     # Source MPQ language data
-│   ├── [REGION_CODE]/            # e.g. frFR-MPQ, esES-MPQ
-│   │   ├── War3.mpq/             # Extracted game assets
-│   │   ├── War3x.mpq/            # Patch assets
-│   │   ├── War3xlocal.mpq/       # Localized expansion assets
-├── CASC_Data/                    # Target CASC language data
-│   ├── [REGION_CODE]/.w3mod/     # e.g. enUS.w3mod, frFR.w3mod
-│   │   ├── abilities/            # Game abilities
-│   │   ├── sound/                # Voice lines
-│   │   └── ...                   # Other game assets
-├── _HomeMade_Data/               # Custom fixes & additions
-│   ├── [REGION_CODE]/            # Region-specific overrides
-│   │   ├── Maps/                 # Fixed campaign maps
-│   │   ├── Movies/               # Converted cutscene audio
-├── merged/                       # Output patch zips
-│   ├── [REGION_CODE]_patch.zip   # Final patch archive
-│   ├── LANGUAGE_CHANGER.bat      # Final installer
-└── OpenGLWorldEditor.py          # 3D UI engine (required)
-```
+To build the executable yourself: run `build_exe.bat` (creates `dist/WC3LanguagePatcher-windows.zip`).
+
+### Optional tools
+(⚠️ Your browser might warn you because this website is http)
+- [CASCView](http://www.zezula.net/en/mpq/download.html) to copy modern `xxXX.w3mod` locale data (Step 3).
+- [MPQ Editor](http://www.zezula.net/en/mpq/download.html) is no longer required: the patcher reads 1.27 archives itself.
 
 ## Usage Guide
 ### Step 1: Add Language Sources
@@ -65,7 +46,10 @@ War3-Legacy-Patcher/
 3. Click to create template folders
 
 ### Step 2: Prepare MPQ Data (Source of your localization files)
-Extract these from pre-1.30 WC3:
+**Easiest:** select the language, click **Import 1.27 install folder...** and pick a Warcraft III 1.27 folder
+(the one containing `war3.mpq`). The four archives are extracted automatically (about 3-4 minutes).
+
+Manual alternative: extract these from pre-1.30 WC3 with MPQ Editor:
 - `war3.mpq` → `./MPQ_Data/[REGION]/MPQ/War3.mpq`
 - `War3Patch.mpq` → `./MPQ_Data/[REGION]/MPQ/War3Patch.mpq`
 - `War3x.mpq` → `./MPQ_Data/[REGION]/MPQ/War3x.mpq`
@@ -100,7 +84,8 @@ Place in `_HomeMade_Data/[REGION]/`:
 ## Troubleshooting
 **Mal’Ganis won’t attack:** Use fixed `human06.w3m` from `_HomeMade_Data/`  
 **Cutscene audio missing:** Verify MP3s in `Movies/` folder  
-**UI not loading:** Ensure `OpenGLWorldEditor.py` is in root
+**No 3D background:** OpenGL is unavailable on this machine; the patcher still works normally
+**Something failed:** see `patcher.log` next to the executable, or run `WC3LanguagePatcher.exe --build frFR` to get a log without the window
 
 # Technical Details (for the nerds)
 
@@ -116,7 +101,7 @@ Notably, I had never worked with the code side of the Warcraft III World Editor 
 
 For example, the campaign map The Purge was broken due to deprecated AI scripting related to Mal'Ganis. Fixing this involved manually identifying legacy syntax that recent versions of the World Editor compiler no longer support, and restructuring the code accordingly.
 
-On the localization side, reverse engineering was also necessary because new keys and variables have been added over the years across patches, while others have been removed (especially those used by the World Editor UI). To handle these inconsistencies, I used Machine Learning models (such as some from HuggingFace like MarianMT and M2M100) to automatically translate newly added strings into the target language while keeping formatting and context intact.
+On the localization side, reverse engineering was also necessary because new keys and variables have been added over the years across patches, while others have been removed (especially those used by the World Editor UI). To handle these inconsistencies, the 1,231 strings added after 1.27 (identical for every language) were translated once with context-aware AI translation, using each language's official 1.27 terminology, and are shipped in `translations/`. The patcher therefore needs no online API, no GPU and no large ML model. An optional online fallback can be enabled in the UI. Maintainers can regenerate or review them with `tools/build_translation_cache.py`.
 
 Additionally, the internal file structure used for campaign and menu localization has changed across versions. This meant that older configuration formats had to be converted into newer formats compatible with the latest game builds—another aspect that required careful inspection and tooling.
 

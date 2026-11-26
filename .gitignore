@@ -1,3 +1,9 @@
 __pycache__/ 
-OpenGLWorldEditor.py 
 patcher original.py 
+MPQ_Data/
+CASC_Data/
+merged/
+build/
+dist/
+translations/_todo/
+__pycache__/

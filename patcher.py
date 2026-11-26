@@ -2,7 +2,14 @@
 import sys
 import os
 import shutil
+import traceback
 from pathlib import Path
+
+# A windowed (no console) executable has no stdout/stderr: print() would crash.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
 # Third-party
 import re
@@ -14,34 +21,13 @@ from PyQt5.QtGui import *
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaPlaylist, QMediaContent
 from PyQt5.QtCore import QUrl
 
-# OpenGL
-from OpenGL.GL import *
-from OpenGL.GLU import *
-
 # Get current script's directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Add to Python path (insert at beginning for priority)
 sys.path.insert(0, current_dir)
 
-# Create __init__.py files if missing
-misc_tools_dirs = [
-    os.path.join(current_dir, "__Misc_Tools"),
-    os.path.join(current_dir, "__Misc_Tools", "patches_maker"),
-    os.path.join(current_dir, "__Misc_Tools", "mpq_to_casc_converter"),
-    os.path.join(current_dir, "__Misc_Tools", "campaignstrings_translator"),
-    os.path.join(current_dir, "__Misc_Tools", "worldeditor_translator")
-]
-
-for directory in misc_tools_dirs:
-    init_path = os.path.join(directory, "__init__.py")
-    # Create directory if it doesn't exist
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    # Create __init__.py if it doesn't exist
-    if not os.path.exists(init_path):
-        with open(init_path, 'w') as f:
-            pass  # create empty file
+from app_paths import resource_path, resource_dir, workspace_dir
 
 os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
 
@@ -53,47 +39,83 @@ LANGUAGE_CODES = sorted([
 from PyQt5.QtCore import QThread, pyqtSignal
 from io import StringIO
 
-from OpenGLWorldEditor import OpenGLWidget, ModelObject, LightObject, StarBackground, MainWindow
+# The 3D background is optional: the patcher must still work on machines
+# where OpenGL is unavailable (VMs, remote desktop, old drivers...).
+try:
+    from OpenGLWorldEditor import MainWindow as EditorMainWindow
+    OPENGL_IMPORT_ERROR = None
+except Exception as _e:  # ImportError, OpenGL errors...
+    EditorMainWindow = None
+    OPENGL_IMPORT_ERROR = _e
 
-# Import patches_maker with correct path
-sys.path.append(os.path.join(current_dir, "__Misc_Tools", "patches_maker"))
 from __Misc_Tools.patches_maker.patches_maker import build_patch_for_region
-
-# Import mpq_to_casc_converter
-sys.path.append(os.path.join(current_dir, "__Misc_Tools", "mpq_to_casc_converter"))
 from __Misc_Tools.mpq_to_casc_converter.mpq_to_casc_converter import convert_mpq_to_casc
+from __Misc_Tools.mpq_reader.install_extractor import extract_install, find_archives, ARCHIVES
+
 
 class RegionProcessor(QThread):
     progress = pyqtSignal(str)
     finished = pyqtSignal()
     error = pyqtSignal(str)
 
-    def __init__(self, mpq_path, lang):
+    def __init__(self, mpq_path, lang, allow_online=False):
         super().__init__()
         self.mpq_path = mpq_path
         self.lang = lang
+        self.allow_online = allow_online
         self.last_progress = ""
 
     def run(self):
-        # Define progress callback that emits to main thread
         def progress_callback(message):
             self.progress.emit(message)
             self.last_progress = message
 
-        # Process the region with our callback
-        convert_mpq_to_casc(
-            region_folder_path=self.mpq_path,
-            progress_callback=progress_callback
-        )
+        try:
+            result = convert_mpq_to_casc(
+                region_folder_path=self.mpq_path,
+                progress_callback=progress_callback,
+                structure_file=resource_path("__Misc_Tools", "mpq_to_casc_converter", "structure.txt"),
+            )
+            if result:
+                build_patch_for_region(
+                    progress_callback=progress_callback,
+                    mpq_to_casc_path=self.mpq_path + "-converted-to-CASC",
+                    workspace_dir=workspace_dir(),
+                    resource_dir=resource_dir(),
+                    allow_online_translation=self.allow_online,
+                )
+        except Exception as e:
+            self.error.emit(f"  | ⛔ Unexpected error for {self.lang}: {e}")
+            self.error.emit(traceback.format_exc())
+        finally:
+            self.finished.emit()
 
-        # Create patch for this region
-        build_patch_for_region(
-            progress_callback=progress_callback,
-            mpq_to_casc_path=self.mpq_path + "-converted-to-CASC",
-        )
 
-        # Emit final result
-        self.finished.emit()
+class InstallImporter(QThread):
+    """Extracts the 4 archives of a 1.27 install into MPQ_Data/<lang>-MPQ."""
+    progress = pyqtSignal(str)
+    done = pyqtSignal(bool)
+
+    def __init__(self, install_dir, region_dir):
+        super().__init__()
+        self.install_dir = install_dir
+        self.region_dir = region_dir
+
+    def run(self):
+        ok = False
+        try:
+            for name in ARCHIVES:
+                target = Path(self.region_dir) / name
+                if target.exists():
+                    shutil.rmtree(target)
+            results = extract_install(self.install_dir, self.region_dir, log=self.progress.emit)
+            failed = sum(len(f) for _, f in results.values())
+            if failed:
+                self.progress.emit(f"  | ⚠️ {failed} file(s) could not be extracted")
+            ok = True
+        except Exception as e:
+            self.progress.emit(f"  | ⛔ Import failed: {e}")
+        self.done.emit(ok)
 
 class CustomMainWindow(QMainWindow):
     def __init__(self, EditorOpenGLwidget):
@@ -142,6 +164,19 @@ class CustomMainWindow(QMainWindow):
         lang_layout.addWidget(self.remove_button)
         lang_group.setLayout(lang_layout)
         right_layout.addWidget(lang_group)
+
+        # Import a 1.27 install directly (replaces the manual MPQ Editor step)
+        self.import_button = QPushButton("Import 1.27 install folder for selected language...")
+        self.import_button.setToolTip(
+            "Pick a Warcraft III 1.27 folder containing war3.mpq, War3x.mpq, War3xlocal.mpq "
+            "and War3Patch.mpq.\nThe archives are extracted to MPQ_Data automatically.")
+        right_layout.addWidget(self.import_button)
+
+        self.online_checkbox = QCheckBox("Online translation for strings without a bundled translation")
+        self.online_checkbox.setToolTip(
+            "Bundled translations are used first. If enabled, remaining strings are sent to free online\n"
+            "translation services (may be rate-limited). If disabled, they stay in English.")
+        right_layout.addWidget(self.online_checkbox)
         
         # Language Table
         self.lang_table = QTableWidget()
@@ -187,8 +222,8 @@ class CustomMainWindow(QMainWindow):
         # Add splitter to main layout
         main_layout.addWidget(self.splitter)
         
-        # Initialize paths and data
-        self.base_path = Path(__file__).parent.absolute()
+        # Initialize paths and data (writable folder: next to the .exe when frozen)
+        self.base_path = workspace_dir()
         self.mpq_base_path = self.base_path / "MPQ_Data"
         self.casc_base_path = self.base_path / "CASC_Data"
         
@@ -210,6 +245,7 @@ class CustomMainWindow(QMainWindow):
         self.add_button.clicked.connect(self.add_language)
         self.remove_button.clicked.connect(self.remove_language)
         self.patch_button.clicked.connect(self.patch_languages)
+        self.import_button.clicked.connect(self.import_install)
 
         # Add this after initializing the settings
         self.media_player = None
@@ -244,14 +280,16 @@ class CustomMainWindow(QMainWindow):
 
     def init_background_music(self):
         """Initialize dual players with synchronized playback"""
+        self.intro_player = None
+        self.loop_player = None
         try:
             # Create two media players
             self.intro_player = QMediaPlayer()
             self.loop_player = QMediaPlayer()
             
             # Load audio files
-            intro_path = os.path.join(current_dir, "./music/COE33 OST Flying Waters - Goblu part01.mp3")
-            loop_path = os.path.join(current_dir, "./music/COE33 OST Flying Waters - Goblu part02.mp3")
+            intro_path = str(resource_path("music", "COE33 OST Flying Waters - Goblu part01.mp3"))
+            loop_path = str(resource_path("music", "COE33 OST Flying Waters - Goblu part02.mp3"))
             
             # Check files exist
             if not os.path.exists(intro_path) or not os.path.exists(loop_path):
@@ -305,8 +343,9 @@ class CustomMainWindow(QMainWindow):
 
     def update_volume(self, value):
         """Update volume and icon based on slider value"""
-        self.intro_player.setVolume(value)
-        self.loop_player.setVolume(value)
+        for player in (self.intro_player, self.loop_player):
+            if player is not None:
+                player.setVolume(value)
 
         if self.media_player:
             self.media_player.setVolume(value)
@@ -523,36 +562,6 @@ class CustomMainWindow(QMainWindow):
             else:  # Linux
                 os.system(f'xdg-open "{path}"')
 
-    def launch_other_script(self, path, name, args):
-
-        # Run Script B and capture its output
-        process = subprocess.Popen(
-            ["python", os.path.join(path, name), args],   # Command to run Script B
-            stdout=subprocess.PIPE,      # Capture stdout
-            stderr=subprocess.PIPE,      # Capture stderr
-            universal_newlines=True,     # Ensure text mode
-            shell=False,                 # Avoid shell (prevents extra console on Windows)
-            creationflags=subprocess.CREATE_NO_WINDOW if subprocess.sys.platform == "win32" else 0  # Hide console on Windows
-        )
-
-        # Read and print Script B's output in real-time
-        while True:
-            stdout_line = process.stdout.readline()
-            if stdout_line:
-                self.log_message(f"[{name}] {stdout_line.strip()}")
-            stderr_line = process.stderr.readline()
-            if stderr_line:
-                self.log_message(f"[{name} ERROR] {stderr_line.strip()}")
-            if process.poll() is not None:  # Check if process has finished
-                break
-
-        # Optional: Get remaining output after process exits
-        remaining_stdout, remaining_stderr = process.communicate()
-        if remaining_stdout:
-            self.log_message(f"[patches_maker] {remaining_stdout.strip()}")
-        if remaining_stderr:
-            self.log_message(f"[patches_maker ERROR] {remaining_stderr.strip()}")
-
     def patch_languages(self):
         if not self.selected_languages:
             self.log_message("No languages selected for patching!")
@@ -581,6 +590,7 @@ class CustomMainWindow(QMainWindow):
     def set_ui_enabled(self, enabled):
         """Enable/disable UI elements during processing and update styles"""
         self.patch_button.setEnabled(enabled)
+        self.import_button.setEnabled(enabled)
         self.add_button.setEnabled(enabled)
         self.remove_button.setEnabled(enabled)
         self.lang_table.setEnabled(enabled)
@@ -625,11 +635,40 @@ class CustomMainWindow(QMainWindow):
         self.log_message(f"MPQ Path: {rel_mpq_path}")
         
         # Create and start worker
-        self.worker = RegionProcessor(mpq_path, lang)
+        self.worker = RegionProcessor(mpq_path, lang, allow_online=self.online_checkbox.isChecked())
         self.worker.progress.connect(self.log_message)
         self.worker.error.connect(self.log_message)
         self.worker.finished.connect(self.process_next_language)
         self.worker.start()
+
+    def import_install(self):
+        lang = self.lang_combo.currentText()
+        folder = QFileDialog.getExistingDirectory(
+            self, f"Select the Warcraft III 1.27 folder for {lang} (contains war3.mpq)")
+        if not folder:
+            return
+        found = find_archives(folder)
+        missing = [a for a in ARCHIVES if a not in found]
+        if missing:
+            QMessageBox.warning(self, "Archives not found",
+                                "These archives are missing in the selected folder:\n" + ", ".join(missing))
+            return
+        if lang not in [item[0] for item in self.selected_languages]:
+            self.add_language()
+        region_dir = self.mpq_base_path / f"{lang}-MPQ"
+        for leftover in region_dir.glob("*/placeholder.txt"):
+            leftover.unlink()
+        self.log_message(f"\nImporting 1.27 archives for {lang} from: {folder}")
+        self.set_ui_enabled(False)
+        self.importer = InstallImporter(folder, region_dir)
+        self.importer.progress.connect(self.log_message)
+        self.importer.done.connect(self.import_finished)
+        self.importer.start()
+
+    def import_finished(self, ok):
+        self.set_ui_enabled(True)
+        self.update_lang_table()
+        self.log_message("✅ Import finished, you can now build the patch." if ok else "⛔ Import failed.")
 
     def save_settings(self):
         serializable = [(lang, ignore, mpq, casc) for lang, ignore, mpq, casc in self.selected_languages]
@@ -671,25 +710,75 @@ class CustomMainWindow(QMainWindow):
         self.console_log.setTextCursor(cursor)
         self.console_log.ensureCursorVisible()
 
+def run_headless(args):
+    """Command-line mode (no window), also used to test the frozen build:
+        WC3LanguagePatcher.exe --import <lang> <1.27 folder>
+        WC3LanguagePatcher.exe --build <lang> [--online]
+    Output goes to patcher.log in the workspace folder."""
+    log_path = workspace_dir() / "patcher.log"
+    with open(log_path, "a", encoding="utf-8") as log_file:
+        def log(msg):
+            log_file.write(msg + "\n")
+            log_file.flush()
+            try:
+                print(msg)
+            except Exception:
+                pass
+        try:
+            if args[0] == "--import" and len(args) >= 3:
+                region_dir = workspace_dir() / "MPQ_Data" / f"{args[1]}-MPQ"
+                extract_install(args[2], region_dir, log=log)
+                return 0
+            if args[0] == "--build" and len(args) >= 2:
+                lang = args[1]
+                mpq_path = str(workspace_dir() / "MPQ_Data" / f"{lang}-MPQ")
+                result = convert_mpq_to_casc(
+                    mpq_path, log,
+                    structure_file=resource_path("__Misc_Tools", "mpq_to_casc_converter", "structure.txt"))
+                if not result:
+                    return 1
+                ok = build_patch_for_region(log, mpq_path + "-converted-to-CASC",
+                                            workspace_dir=workspace_dir(), resource_dir=resource_dir(),
+                                            allow_online_translation="--online" in args)
+                return 0 if ok else 1
+            log(run_headless.__doc__)
+            return 2
+        except Exception:
+            log(traceback.format_exc())
+            return 1
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1].startswith("--"):
+        sys.exit(run_headless(sys.argv[1:]))
     if hasattr(Qt, 'AA_EnableHighDpiScaling'):
         QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
         QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
     
     app = QApplication(sys.argv)
-    
-    # Initialize editor window FIRST
-    Editorwindow = MainWindow()
-    
-    # Force OpenGL context activation
-    Editorwindow.opengl_widget.makeCurrent()
-    
-    # Load scene with built-in progress dialog
-    Editorwindow.opengl_widget.load_scene("test_scene.json", parent=Editorwindow)
-    
+
+    scene_widget = None
+    if EditorMainWindow is not None and os.environ.get("WC3_PATCHER_NO_3D") != "1":
+        try:
+            # Initialize editor window FIRST
+            Editorwindow = EditorMainWindow()
+            # Force OpenGL context activation
+            Editorwindow.opengl_widget.makeCurrent()
+            # Load scene with built-in progress dialog
+            Editorwindow.opengl_widget.load_scene(str(resource_path("test_scene.json")), parent=Editorwindow)
+            scene_widget = Editorwindow.opengl_widget
+        except Exception as e:
+            print(f"3D scene disabled: {e}")
+            scene_widget = None
+
+    if scene_widget is None:
+        scene_widget = QLabel("WC3 Localization Patcher")
+        scene_widget.setAlignment(Qt.AlignCenter)
+        scene_widget.setStyleSheet("background-color: #10131a; color: #c8a24a; font-size: 28px; font-weight: bold;")
+
     # Create patcher window
-    window = CustomMainWindow(EditorOpenGLwidget=Editorwindow.opengl_widget)
+    window = CustomMainWindow(EditorOpenGLwidget=scene_widget)
     window.show()
     
     sys.exit(app.exec_())

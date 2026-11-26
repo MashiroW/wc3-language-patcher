@@ -1,4 +1,5 @@
-PyQt5>=5.15.0
-PyOpenGL>=3.1.0
-numpy>=1.19.0
-Pillow>=8.0.0
+# Runtime dependencies (tested with Python 3.12, Windows 11, Nov. 2026)
+PyQt5==5.15.11
+PyOpenGL==3.1.10
+numpy>=1.26,<3
+Pillow>=10
