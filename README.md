@@ -36,8 +36,7 @@ To build the executable yourself: run `build_exe.bat` (creates `dist/WC3Language
 
 ### Optional tools
 (⚠️ Your browser might warn you because this website is http)
-- [CASCView](http://www.zezula.net/en/mpq/download.html) to copy modern `xxXX.w3mod` locale data (Step 3).
-- [MPQ Editor](http://www.zezula.net/en/mpq/download.html) is no longer required: the patcher reads 1.27 archives itself.
+- [MPQ Editor and CASCView](http://www.zezula.net/en/mpq/download.html) are no longer required: the patcher reads 1.27 MPQ archives and modern CASC installs itself. They remain useful to inspect files.
 
 ## Usage Guide
 ### Step 1: Add Language Sources
@@ -56,7 +55,11 @@ Manual alternative: extract these from pre-1.30 WC3 with MPQ Editor:
 - `War3xlocal.mpq` → `./MPQ_Data/[REGION]/MPQ/War3xlocal.mpq`
 
 ### Step 3: Prepare CASC Data (Optional)
-From modern WC3 (1.30+):
+**Easiest:** select the language, click **Import modern install folder (CASC)...** and pick your modern
+Warcraft III folder (the one containing `.build.info` and `Data`). The locale is extracted to
+`CASC_Data/xxxx.w3mod` automatically. Only the languages installed with the game are stored locally.
+
+Manual alternative with CascView, from modern WC3 (1.30+):
 1. Find either:
     - Direct: `enUS.w3mod`
     - Nested: `war3.w3mod/Locales/enUS.w3mod`
