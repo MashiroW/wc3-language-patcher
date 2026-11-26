@@ -218,7 +218,7 @@ def prefer_localized_over_english(target_path, localized_path, english_template,
                 elif translator is not None:
                     # no 1.27 text for this key: same rule as missing strings
                     inner, quoted = _split_quoted(raw)
-                    new = translator.translate(inner)
+                    new = translator.translate(inner, allow_empty=False)
                     if new != inner:
                         line = f'{indent}{key}{eq}"{new}"' if quoted else f"{indent}{key}{eq}{new}"
                         translated += 1

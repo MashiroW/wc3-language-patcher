@@ -66,8 +66,12 @@ from __Misc_Tools.casc_reader.casc import CASCStorage, extract_locale, present_l
 from __Misc_Tools.casc_reader.target import prepare_target, inspect_target, describe_locales
 
 
-def run_region(mpq_path, lang, log, target_dir=None, allow_online=False):
-    """Full pipeline for one language. Returns True on success."""
+def run_region(mpq_path, lang, log, target_dir=None, allow_online=False, source_dir=None,
+               missing_fallback="english"):
+    """Full pipeline for one language. Returns True on success.
+
+    source_dir: 1.27 install folder (its .mpq archives are read directly);
+                without it, the extracted files in mpq_path are used."""
     structure = resource_path("__Misc_Tools", "mpq_to_casc_converter", "structure.txt")
     templates = None
     if target_dir:
@@ -79,7 +83,7 @@ def run_region(mpq_path, lang, log, target_dir=None, allow_online=False):
     else:
         log("  | ℹ️ No target CASC version selected: using CASC_Data and the bundled 1.31 references")
     result = convert_mpq_to_casc(region_folder_path=mpq_path, progress_callback=log,
-                                 structure_file=structure)
+                                 structure_file=structure, install_dir=source_dir or None)
     if not result:
         return False
     ok = build_patch_for_region(
@@ -89,6 +93,7 @@ def run_region(mpq_path, lang, log, target_dir=None, allow_online=False):
         resource_dir=resource_dir(),
         allow_online_translation=allow_online,
         templates_dir=templates,
+        missing_fallback=missing_fallback,
     )
     if target_dir:
         shutil.rmtree(workspace_dir() / "_work", ignore_errors=True)
@@ -124,12 +129,15 @@ class RegionProcessor(QThread):
     finished = pyqtSignal()
     error = pyqtSignal(str)
 
-    def __init__(self, mpq_path, lang, allow_online=False, target_dir=None):
+    def __init__(self, mpq_path, lang, allow_online=False, target_dir=None, source_dir=None,
+                 missing_fallback="english"):
         super().__init__()
         self.mpq_path = mpq_path
         self.lang = lang
         self.allow_online = allow_online
         self.target_dir = target_dir
+        self.source_dir = source_dir
+        self.missing_fallback = missing_fallback
         self.last_progress = ""
 
     def run(self):
@@ -139,7 +147,8 @@ class RegionProcessor(QThread):
 
         try:
             run_region(self.mpq_path, self.lang, progress_callback,
-                       target_dir=self.target_dir, allow_online=self.allow_online)
+                       target_dir=self.target_dir, allow_online=self.allow_online,
+                       source_dir=self.source_dir, missing_fallback=self.missing_fallback)
         except Exception as e:
             self.error.emit(f"  | ⛔ Unexpected error for {self.lang}: {e}")
             self.error.emit(traceback.format_exc())
@@ -200,6 +209,7 @@ class CustomMainWindow(QMainWindow):
         self.setMinimumSize(800, 600)  # Prevent window from becoming too small
         
         self.settings = QSettings("Mashiro", "WC3LocalizationPatcher")
+        self.sources = self.load_sources()   # lang -> 1.27 install folder
         
         # Main widget and layout
         main_widget = QWidget()
@@ -263,23 +273,35 @@ class CustomMainWindow(QMainWindow):
         lang_group.setLayout(lang_layout)
         right_layout.addWidget(lang_group)
 
-        # Import a 1.27 install directly (replaces the manual MPQ Editor step)
-        self.import_button = QPushButton("Import 1.27 install folder for selected language...")
-        self.import_button.setToolTip(
-            "Pick a Warcraft III 1.27 folder containing war3.mpq, War3x.mpq, War3xlocal.mpq "
-            "and War3Patch.mpq.\nThe archives are extracted to MPQ_Data automatically.")
-        right_layout.addWidget(self.import_button)
-
-        self.online_checkbox = QCheckBox("Online translation for strings without a bundled translation")
+        # Translation of the strings the 1.27 version never had
+        tr_group = QGroupBox("Missing Strings")
+        tr_layout = QVBoxLayout()
+        self.online_checkbox = QCheckBox("Translate online if needed (recommended, keep it on)")
         self.online_checkbox.setToolTip(
-            "Bundled translations are used first. If enabled, remaining strings are sent to free online\n"
-            "translation services (may be rate-limited). If disabled, they stay in English.")
-        right_layout.addWidget(self.online_checkbox)
-        
+            "Original texts are always kept. Strings that did not exist in 1.27 use the bundled\n"
+            "translations; the few left are translated online. Turning this off is not recommended.")
+        tr_layout.addWidget(self.online_checkbox)
+        fallback_row = QHBoxLayout()
+        fallback_row.setContentsMargins(20, 0, 0, 0)
+        self.fallback_label = QLabel("If not translated:")
+        self.fallback_english = QRadioButton("Use the target's English text")
+        self.fallback_empty = QRadioButton("Leave empty (may break texts)")
+        self.fallback_english.setChecked(True)
+        self.fallback_group = QButtonGroup(self)
+        self.fallback_group.addButton(self.fallback_english)
+        self.fallback_group.addButton(self.fallback_empty)
+        fallback_row.addWidget(self.fallback_label)
+        fallback_row.addWidget(self.fallback_english)
+        fallback_row.addWidget(self.fallback_empty)
+        fallback_row.addStretch(1)
+        tr_layout.addLayout(fallback_row)
+        tr_group.setLayout(tr_layout)
+        right_layout.addWidget(tr_group)
+
         # Language Table
         self.lang_table = QTableWidget()
         self.lang_table.setColumnCount(4)
-        self.lang_table.setHorizontalHeaderLabels(["Language", "Skip", "MPQ Path", "CASC Path"])
+        self.lang_table.setHorizontalHeaderLabels(["Language", "Skip", "1.27 Source (MPQ)", "CASC Path"])
         self.lang_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.lang_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.lang_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
@@ -353,7 +375,12 @@ class CustomMainWindow(QMainWindow):
         self.add_button.clicked.connect(self.add_language)
         self.remove_button.clicked.connect(self.remove_language)
         self.patch_button.clicked.connect(self.patch_languages)
-        self.import_button.clicked.connect(self.import_install)
+        self.online_checkbox.setChecked(self.settings.value("online_translation", True, type=bool))
+        if self.settings.value("missing_fallback", "english", type=str) == "empty":
+            self.fallback_empty.setChecked(True)
+        self.online_checkbox.toggled.connect(self.save_translation_options)
+        self.fallback_english.toggled.connect(self.save_translation_options)
+        self.update_fallback_state(True)
         self.target_browse.clicked.connect(self.browse_target)
         self.target_clear.clicked.connect(lambda: self.set_target(""))
         self.set_target(self.settings.value("target_casc", "", type=str), quiet=True)
@@ -542,31 +569,73 @@ class CustomMainWindow(QMainWindow):
         if lang not in [item[0] for item in self.selected_languages]:
             mpq_path = os.path.join(self.mpq_base_path, f"{lang}-MPQ")
             casc_path = os.path.join(self.casc_base_path, f"{lang.lower()}.w3mod")
-            
-            mpq_subdirs = ["war3.mpq", "war3x.mpq", "war3xlocal.mpq", "War3Patch.mpq"]
-            for subdir in mpq_subdirs:
-                full_path = os.path.join(mpq_path, subdir)
-                os.makedirs(full_path, exist_ok=True)
-                dummy_file = os.path.join(full_path, "placeholder.txt")
-                if not os.path.exists(dummy_file):
-                    with open(dummy_file, 'w') as f:
-                        f.write("This directory is for Warcraft 3 localization files")
-            
-            os.makedirs(casc_path, exist_ok=True)
-            dummy_file = os.path.join(casc_path, "placeholder.txt")
-            if not os.path.exists(dummy_file):
-                with open(dummy_file, 'w') as f:
-                    f.write("This directory is for Warcraft 3 CASC files")
-            
             rel_mpq_path = os.path.relpath(mpq_path, self.base_path)
             rel_casc_path = os.path.relpath(casc_path, self.base_path)
-            
+
             self.selected_languages.append((lang, False, rel_mpq_path, rel_casc_path))
-            self.update_lang_table()
             self.log_message(f"Added language: {lang}")
-            self.log_message(f"Created MPQ structure at: {rel_mpq_path}")
-            self.log_message(f"Created CASC structure at: {rel_casc_path}")
             self.save_settings()
+            # ask right away for the 1.27 install of this language
+            if not self.has_source(lang):
+                self.choose_source(lang)
+            self.update_lang_table()
+
+    # ------------------------------------------------ translation options ---
+    def update_fallback_state(self, ui_enabled=True):
+        """The fallback choice only matters when online translation is off."""
+        active = ui_enabled and not self.online_checkbox.isChecked()
+        for w in (self.fallback_label, self.fallback_english, self.fallback_empty):
+            w.setEnabled(active)
+
+    def save_translation_options(self, *_):
+        self.settings.setValue("online_translation", self.online_checkbox.isChecked())
+        self.settings.setValue("missing_fallback", "empty" if self.fallback_empty.isChecked() else "english")
+        self.update_fallback_state(self.patch_button.isEnabled())
+
+    # ------------------------------------------------------- 1.27 sources ---
+    def load_sources(self):
+        import json
+        try:
+            return json.loads(self.settings.value("sources_127", "{}", type=str) or "{}")
+        except ValueError:
+            return {}
+
+    def save_sources(self):
+        import json
+        self.settings.setValue("sources_127", json.dumps(self.sources))
+
+    def extracted_folder(self, lang):
+        """MPQ_Data/<lang>-MPQ filled by hand (original workflow), or None."""
+        folder = self.mpq_base_path / f"{lang}-MPQ"
+        if not folder.is_dir():
+            return None
+        has_files = any(p.is_file() and p.name != "placeholder.txt" for p in folder.rglob("*"))
+        return folder if has_files else None
+
+    def source_ok(self, lang):
+        folder = self.sources.get(lang)
+        return bool(folder) and len(find_archives(folder)) == len(ARCHIVES) if folder and Path(folder).is_dir() else False
+
+    def has_source(self, lang):
+        return self.source_ok(lang) or self.extracted_folder(lang) is not None
+
+    def choose_source(self, lang):
+        folder = QFileDialog.getExistingDirectory(
+            self, f"Select the Warcraft III 1.27 folder for {lang} (contains war3.mpq)",
+            self.sources.get(lang, ""))
+        if not folder:
+            return False
+        found = find_archives(folder)
+        missing = [a for a in ARCHIVES if a not in found]
+        if missing:
+            QMessageBox.warning(self, "Archives not found",
+                                "These archives are missing in the selected folder:\n" + ", ".join(missing))
+            return False
+        self.sources[lang] = folder
+        self.save_sources()
+        self.log_message(f"1.27 source for {lang}: {folder}")
+        self.update_lang_table()
+        return True
 
     def remove_language(self):
         selected_row = self.lang_table.currentRow()
@@ -613,36 +682,42 @@ class CustomMainWindow(QMainWindow):
         
         for i, (lang, ignore, rel_mpq_path, rel_casc_path) in enumerate(self.selected_languages):
             lang_item = QTableWidgetItem(lang)
-            mpq_item = QTableWidgetItem(rel_mpq_path)
             casc_item = QTableWidgetItem(rel_casc_path)
-            
-            mpq_path = os.path.join(self.base_path, rel_mpq_path)
+
             casc_path = os.path.join(self.base_path, rel_casc_path)
-            mpq_exists = os.path.exists(mpq_path)
             casc_exists = os.path.exists(casc_path)
-            has_missing_path = not (mpq_exists and casc_exists)
-            
+            has_missing_path = not self.has_source(lang)
+
             if has_missing_path:
                 orange_color = QColor(255, 165, 0)
-                for item in [lang_item, mpq_item, casc_item]:
+                for item in [lang_item, casc_item]:
                     item.setBackground(orange_color)
-            
+
             self.lang_table.setItem(i, 0, lang_item)
-            
+
             chk = QCheckBox()
             chk.setChecked(ignore)
             chk.stateChanged.connect(lambda state, row=i: self.toggle_ignore(row, state))
             if has_missing_path:
                 chk.setStyleSheet("background-color: rgb(255, 165, 0);")
             self.lang_table.setCellWidget(i, 1, chk)
-            
-            mpq_btn = QPushButton("Open MPQ")
-            mpq_btn.setEnabled(mpq_exists)
-            if not mpq_exists:
-                mpq_btn.setStyleSheet("color: gray;")
-            mpq_btn.clicked.connect(lambda _, path=mpq_path: self.show_in_explorer(path))
-            self.lang_table.setCellWidget(i, 2, mpq_btn)
-            self.lang_table.setItem(i, 2, mpq_item)
+
+            # 1.27 source: the install folder (read directly) or MPQ_Data filled by hand
+            if self.source_ok(lang):
+                label = Path(self.sources[lang]).name or self.sources[lang]
+                tip = f"{self.sources[lang]}\nClick to change"
+            elif self.extracted_folder(lang) is not None:
+                label = f"MPQ_Data/{lang}-MPQ"
+                tip = "Extracted files in MPQ_Data are used.\nClick to choose a 1.27 install folder instead"
+            else:
+                label = "Choose 1.27 folder..."
+                tip = "Select the Warcraft III 1.27 install of this language (contains war3.mpq)"
+            src_btn = QPushButton(label)
+            src_btn.setToolTip(tip)
+            if has_missing_path:
+                src_btn.setStyleSheet("background-color: rgb(255, 165, 0);")
+            src_btn.clicked.connect(lambda _, l=lang: self.choose_source(l))
+            self.lang_table.setCellWidget(i, 2, src_btn)
             
             casc_btn = QPushButton("Open CASC")
             casc_btn.setEnabled(casc_exists)
@@ -680,6 +755,14 @@ class CustomMainWindow(QMainWindow):
             
         if not self.confirm_target():
             return
+        # one button does everything: ask now for any missing 1.27 source
+        for lang, ignore, _, _ in self.selected_languages:
+            if not ignore and not self.has_source(lang):
+                QMessageBox.information(self, "1.27 source needed",
+                                        f"Select the Warcraft III 1.27 install folder for {lang}.")
+                if not self.choose_source(lang):
+                    self.log_message(f"⛔ No 1.27 source for {lang}: build cancelled")
+                    return
         self.log_message("Starting patch process...")
         self.log_message(f"🎯 Target: {self.target_dir or 'none (CASC_Data + bundled 1.31 references)'}")
         for lang, ignore, _, _ in self.selected_languages:
@@ -707,7 +790,8 @@ class CustomMainWindow(QMainWindow):
     def set_ui_enabled(self, enabled):
         """Enable/disable UI elements during processing and update styles"""
         self.patch_button.setEnabled(enabled)
-        self.import_button.setEnabled(enabled)
+        self.online_checkbox.setEnabled(enabled)
+        self.update_fallback_state(enabled)
         self.target_browse.setEnabled(enabled)
         self.target_clear.setEnabled(enabled)
         self.add_button.setEnabled(enabled)
@@ -752,12 +836,14 @@ class CustomMainWindow(QMainWindow):
         lang, rel_mpq_path = self.languages_to_process.pop(0)
         mpq_path = os.path.join(self.base_path, rel_mpq_path)
         
+        source = self.sources.get(lang) if self.source_ok(lang) else None
         self.log_message(f"\nProcessing language: {lang}")
-        self.log_message(f"MPQ Path: {rel_mpq_path}")
-        
+        self.log_message(f"1.27 source: {source or rel_mpq_path}")
+
         # Create and start worker
         self.worker = RegionProcessor(mpq_path, lang, allow_online=self.online_checkbox.isChecked(),
-                                      target_dir=self.target_dir or None)
+                                      target_dir=self.target_dir or None, source_dir=source,
+                                      missing_fallback="empty" if self.fallback_empty.isChecked() else "english")
         self.worker.progress.connect(self.log_message)
         self.worker.error.connect(self.log_message)
         self.worker.finished.connect(self.process_next_language)
@@ -950,7 +1036,11 @@ def run_headless(args):
     """Command-line mode (no window), also used to test the frozen build:
         WC3LanguagePatcher.exe --import <lang> <1.27 folder>
         WC3LanguagePatcher.exe --import-casc <modern game folder> <lang>
-        WC3LanguagePatcher.exe --build <lang> [--target <modern game folder>] [--online]
+        WC3LanguagePatcher.exe --build <lang> [--source <1.27 folder>] [--target <modern game folder>]
+                               [--no-online] [--empty]
+      --source     read the 1.27 .mpq archives directly (otherwise MPQ_Data/<lang>-MPQ)
+      --no-online  no online translation for strings without a bundled translation
+      --empty      with --no-online: leave those strings empty instead of English
     Output goes to patcher.log in the workspace folder."""
     log_path = workspace_dir() / "patcher.log"
     with open(log_path, "a", encoding="utf-8") as log_file:
@@ -972,8 +1062,11 @@ def run_headless(args):
                 lang = args[1]
                 mpq_path = str(workspace_dir() / "MPQ_Data" / f"{lang}-MPQ")
                 target = args[args.index("--target") + 1] if "--target" in args else None
-                ok = run_region(mpq_path, lang, log, target_dir=target,
-                                allow_online="--online" in args)
+                source = args[args.index("--source") + 1] if "--source" in args else None
+                online = "--no-online" not in args
+                ok = run_region(mpq_path, lang, log, target_dir=target, allow_online=online,
+                                source_dir=source,
+                                missing_fallback="empty" if ("--empty" in args and not online) else "english")
                 return 0 if ok else 1
             log(run_headless.__doc__)
             return 2

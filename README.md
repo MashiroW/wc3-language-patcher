@@ -41,14 +41,14 @@ To build the executable yourself: run `build_exe.bat` (creates `dist/WC3Language
 ## Usage Guide
 ### Step 1: Add Language Sources
 1. Launch patcher
-2. Select language code (e.g. `frFR`, `esES`)
-3. Click to create template folders
+2. Select language code (e.g. `frFR`, `esES`) and click **+**
+3. Pick the Warcraft III **1.27 install of that language** (the folder containing `war3.mpq`).
+   It can be changed later with the button of the **1.27 Source (MPQ)** column.
 
-### Step 2: Prepare MPQ Data (Source of your localization files)
-**Easiest:** select the language, click **Import 1.27 install folder...** and pick a Warcraft III 1.27 folder
-(the one containing `war3.mpq`). The four archives are extracted automatically (about 3-4 minutes).
+### Step 2: MPQ Data (Source of your localization files)
+Nothing to do: at build time the `.mpq` archives of the 1.27 folder are read directly, no extraction needed.
 
-Manual alternative: extract these from pre-1.30 WC3 with MPQ Editor:
+Manual alternative (original workflow, still supported): extract these with MPQ Editor:
 - `war3.mpq` → `./MPQ_Data/[REGION]/MPQ/War3.mpq`
 - `War3Patch.mpq` → `./MPQ_Data/[REGION]/MPQ/War3Patch.mpq`
 - `War3x.mpq` → `./MPQ_Data/[REGION]/MPQ/War3x.mpq`
@@ -70,6 +70,12 @@ Manual alternative with CascView, from modern WC3 (1.30+):
     - Direct: `enUS.w3mod`
     - Nested: `war3.w3mod/Locales/enUS.w3mod`
 2. Then copy to `CASC_Data/[REGION]/.w3mod/`
+
+### Missing Strings (translation options)
+Strings that did not exist in 1.27 use the bundled AI translations; the few left are translated
+online (**Translate online if needed**, on by default, recommended). If you turn it off, choose what
+those strings become: the target's English text (safe) or empty (may break some texts).
+Original texts (1.27 and target) are always kept.
 
 ### Step 4: Add Custom Content
 Place in `_HomeMade_Data/[REGION]/`:
@@ -110,7 +116,7 @@ Notably, I had never worked with the code side of the Warcraft III World Editor 
 
 For example, the campaign map The Purge was broken due to deprecated AI scripting related to Mal'Ganis. Fixing this involved manually identifying legacy syntax that recent versions of the World Editor compiler no longer support, and restructuring the code accordingly.
 
-On the localization side, reverse engineering was also necessary because new keys and variables have been added over the years across patches, while others have been removed (especially those used by the World Editor UI). To handle these inconsistencies, the 1,231 strings added after 1.27 (identical for every language) were translated once with context-aware AI translation, using each language's official 1.27 terminology, and are shipped in `translations/`. The patcher therefore needs no online API, no GPU and no large ML model. An optional online fallback can be enabled in the UI. Maintainers can regenerate or review them with `tools/build_translation_cache.py`.
+On the localization side, reverse engineering was also necessary because new keys and variables have been added over the years across patches, while others have been removed (especially those used by the World Editor UI). To handle these inconsistencies, the 1,231 strings added after 1.27 (identical for every language) were translated once with context-aware AI translation, using each language's official 1.27 terminology, and are shipped in `translations/`. The patcher therefore needs no online API, no GPU and no large ML model. The few strings left are translated online (on by default, can be turned off in the UI). Maintainers can regenerate or review them with `tools/build_translation_cache.py`.
 
 Additionally, the internal file structure used for campaign and menu localization has changed across versions. This meant that older configuration formats had to be converted into newer formats compatible with the latest game builds—another aspect that required careful inspection and tooling.
 

@@ -11,7 +11,8 @@ from __Misc_Tools.translation.string_merge import (
 
 
 def build_patch_for_region(progress_callback, mpq_to_casc_path, workspace_dir=None,
-                           resource_dir=None, allow_online_translation=False, templates_dir=None):
+                           resource_dir=None, allow_online_translation=False, templates_dir=None,
+                           missing_fallback="english"):
     """Create the patch zip for one region.
 
     workspace_dir: writable folder holding MPQ_Data, CASC_Data and merged/
@@ -81,7 +82,7 @@ def build_patch_for_region(progress_callback, mpq_to_casc_path, workspace_dir=No
 
         # Step 6: bring 1.27 text files to the 1.31 layout
         translator = StringTranslator(region_code, res_dir / "translations", progress_callback,
-                                      allow_online=allow_online_translation)
+                                      allow_online=allow_online_translation, fallback=missing_fallback)
         update_text_files(region_patch_folder, TEMPLATES, translator,
                           casc_region_folder if has_casc else None, progress_callback,
                           source_folder=MPQ_DATA_TO_CASC)

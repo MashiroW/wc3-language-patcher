@@ -119,8 +119,13 @@ class _OnlineBackend:
 
 
 class StringTranslator:
-    def __init__(self, region_code: str, cache_dir: Path, log=None, allow_online=False):
+    def __init__(self, region_code: str, cache_dir: Path, log=None, allow_online=False,
+                 fallback: str = "english"):
+        """fallback: what a missing string becomes when it has no translation
+        (bundled or online): "english" = the target's English text,
+        "empty" = an empty value (may break some texts)."""
         self.region_code = region_code
+        self.fallback = fallback
         self.log = log or print
         self.cache_file = Path(cache_dir) / f"{region_code}.json"
         self.cache: dict[str, str] = {}
@@ -129,9 +134,11 @@ class StringTranslator:
                 self.cache = json.load(f).get("strings", {})
         target = REGION_TO_ONLINE_LANG.get(region_code)
         self.online = _OnlineBackend(target, self.log) if (allow_online and target and target != "en") else None
-        self.stats = {"cache": 0, "online": 0, "english": 0}
+        self.stats = {"cache": 0, "online": 0, "english": 0, "empty": 0}
 
-    def translate(self, english: str) -> str:
+    def translate(self, english: str, allow_empty: bool = True) -> str:
+        """allow_empty=False forces the English fallback (used on the target's
+        own original lines, which must never be blanked)."""
         if not is_translatable(english):
             return english
         if english in self.cache:
@@ -145,10 +152,16 @@ class StringTranslator:
                 if out:
                     self.stats["online"] += 1
                     return out
+        if self.fallback == "empty" and allow_empty:
+            self.stats["empty"] += 1
+            return ""
         self.stats["english"] += 1
         return english
 
     def summary(self) -> str:
         s = self.stats
-        return (f"{s['cache']} from bundled translations, {s['online']} translated online, "
+        text = (f"{s['cache']} from bundled translations, {s['online']} translated online, "
                 f"{s['english']} kept in English")
+        if s["empty"]:
+            text += f", {s['empty']} left empty"
+        return text
