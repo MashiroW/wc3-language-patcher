@@ -268,7 +268,13 @@ class CustomMainWindow(QMainWindow):
             QPushButton:hover { background-color: #45a049; }
         """)
         right_layout.addWidget(self.patch_button)
-        
+
+        # Where the patch zips end up (merged/ next to the exe)
+        self.output_button = QPushButton("Open output folder (merged)")
+        self.output_button.setToolTip("Opens the folder containing the built <lang>_patch.zip files")
+        self.output_button.clicked.connect(self.open_output_folder)
+        right_layout.addWidget(self.output_button)
+
         # Console Log
         self.console_log = QTextEdit()
         self.console_log.setReadOnly(True)
@@ -293,6 +299,7 @@ class CustomMainWindow(QMainWindow):
         # Create directories if needed
         self.mpq_base_path.mkdir(exist_ok=True)
         self.casc_base_path.mkdir(exist_ok=True)
+        self.update_output_button()
         
         # Load saved settings
         self.selected_languages = self.detect_existing_languages()
@@ -690,7 +697,9 @@ class CustomMainWindow(QMainWindow):
         if not self.languages_to_process:
             self.set_ui_enabled(True)
             self.log_message("Patch completed for selected languages!")
+            self.log_message(f"📁 Output folder: {self.base_path / 'merged'}")
             self.log_message("")
+            self.update_output_button()
             return
         
         lang, rel_mpq_path = self.languages_to_process.pop(0)
@@ -729,6 +738,19 @@ class CustomMainWindow(QMainWindow):
         self.importer.progress.connect(self.log_message)
         self.importer.done.connect(self.import_finished)
         self.importer.start()
+
+    def update_output_button(self):
+        merged = self.base_path / "merged"
+        zips = sorted(merged.glob("*_patch*.zip")) if merged.exists() else []
+        self.output_button.setEnabled(bool(zips))
+        self.output_button.setText(
+            f"Open output folder (merged) - {len(zips)} patch(es)" if zips
+            else "Open output folder (merged) - build a patch first")
+
+    def open_output_folder(self):
+        merged = self.base_path / "merged"
+        if merged.exists():
+            self.show_in_explorer(str(merged))
 
     def import_casc(self):
         lang = self.lang_combo.currentText()

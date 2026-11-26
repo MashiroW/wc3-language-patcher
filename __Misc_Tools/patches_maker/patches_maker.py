@@ -271,6 +271,7 @@ def zip_and_remove(folder_path, progress_callback):
         shutil.rmtree(folder_path, ignore_errors=True)
         progress_callback(f"  | ✅ Removed temporary folder: {folder_path.name}")
         progress_callback(f"  | 📦 Archive created: {zip_path.name} ({zip_path.stat().st_size // 1024} KB)")
+        progress_callback(f"  | 📁 Saved to: {zip_path.resolve()}")
     except Exception as e:
         progress_callback(f"  | ⛔ Zip creation failed: {e}")
 
