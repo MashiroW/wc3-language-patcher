@@ -16,22 +16,44 @@ FDF_KEY_RE = re.compile(r'^(\s*)([A-Za-z0-9_]+)(\s+)"((?:[^"\\]|\\.)*)"(\s*,?)(.
 _MOJIBAKE_BOM = "ï»¿"  # UTF-8 BOM decoded as cp1252, found in some 1.27 files
 
 
+# Old 1.27 text files that are not UTF-8 use the Windows code page of their language
+REGION_CODEPAGE = {"ruRU": "cp1251", "plPL": "cp1250", "csCZ": "cp1250", "koKR": "cp949",
+                   "zhTW": "cp950", "zhCN": "cp936"}
+_codepage_hint = "cp1252"
+_file_encodings = {}   # path -> encoding the file was read with (written back the same way)
+
+
+def set_codepage_hint(region_code: str):
+    global _codepage_hint
+    _codepage_hint = REGION_CODEPAGE.get(region_code, "cp1252")
+
+
 def read_text(path) -> tuple[str, bool]:
     raw = Path(path).read_bytes()
     had_bom = raw.startswith(b"\xef\xbb\xbf")
-    try:
-        text = raw.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        text = raw.decode("cp1252")
+    for encoding in ("utf-8-sig", _codepage_hint, "latin-1"):
+        try:
+            text = raw.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    _file_encodings[str(Path(path).resolve())] = "utf-8" if encoding == "utf-8-sig" else encoding
     while text.startswith(_MOJIBAKE_BOM) or text.startswith("﻿"):
         text = text[3:] if text.startswith(_MOJIBAKE_BOM) else text[1:]
     return text, had_bom
 
 
 def write_text(path, text: str, bom: bool):
+    """Written back in the encoding the file was read with, so untouched lines of
+    an old code-page file keep their exact bytes."""
     text = text.replace("\r\n", "\n").replace("\n", "\r\n")
-    with open(path, "w", encoding="utf-8-sig" if bom else "utf-8", newline="") as f:
-        f.write(text)
+    encoding = _file_encodings.get(str(Path(path).resolve()), "utf-8")
+    if encoding == "utf-8":
+        with open(path, "w", encoding="utf-8-sig" if bom else "utf-8", newline="") as f:
+            f.write(text)
+    else:
+        with open(path, "w", encoding=encoding, errors="replace", newline="") as f:
+            f.write(text)
 
 
 def _ini_values(text):

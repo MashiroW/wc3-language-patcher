@@ -8,7 +8,7 @@ from zipfile import ZipFile
 from __Misc_Tools.translation.translator import StringTranslator
 from __Misc_Tools.translation.string_merge import (
     merge_ini_strings, merge_fdf_strings, convert_campaign_strings, prefer_localized_over_english,
-    complete_ini_sections, read_text, merge_config_keep_fonts)
+    complete_ini_sections, read_text, merge_config_keep_fonts, set_codepage_hint)
 
 
 def build_patch_for_region(progress_callback, mpq_to_casc_path, workspace_dir=None,
@@ -82,6 +82,7 @@ def build_patch_for_region(progress_callback, mpq_to_casc_path, workspace_dir=No
         clean_folder(region_patch_folder, progress_callback)
 
         # Step 6: bring 1.27 text files to the 1.31 layout
+        set_codepage_hint(region_code)
         translator = StringTranslator(region_code, res_dir / "translations", progress_callback,
                                       allow_online=allow_online_translation, fallback=missing_fallback)
         update_text_files(region_patch_folder, TEMPLATES, translator,

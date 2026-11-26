@@ -193,7 +193,10 @@ def main(zip_path, workspace, lang, templates=None):
         counts[ext] += 1
         head = z.open(n).read(12)
         if ext == "wav" and not (head[:4] == b"RIFF" and head[8:12] == b"WAVE"):
-            bad_audio[ext] += 1
+            if head[:3] == b"ID3" or (head[0] == 0xFF and head[1] & 0xE0 == 0xE0):
+                warn(f"{n}: MP3 data with a .wav name (as in the original 1.27 data)")
+            else:
+                bad_audio[ext] += 1
         elif ext == "mp3" and not (head[:3] == b"ID3" or (head[0] == 0xFF and head[1] & 0xE0 == 0xE0)):
             bad_audio[ext] += 1
         elif ext == "ogg" and head[:4] != b"OggS":
