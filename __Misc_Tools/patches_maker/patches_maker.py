@@ -7,7 +7,7 @@ from zipfile import ZipFile
 
 from __Misc_Tools.translation.translator import StringTranslator
 from __Misc_Tools.translation.string_merge import (
-    merge_ini_strings, merge_fdf_strings, convert_campaign_strings)
+    merge_ini_strings, merge_fdf_strings, convert_campaign_strings, prefer_localized_over_english)
 
 
 def build_patch_for_region(progress_callback, mpq_to_casc_path, workspace_dir=None,
@@ -83,7 +83,8 @@ def build_patch_for_region(progress_callback, mpq_to_casc_path, workspace_dir=No
         translator = StringTranslator(region_code, res_dir / "translations", progress_callback,
                                       allow_online=allow_online_translation)
         update_text_files(region_patch_folder, TEMPLATES, translator,
-                          casc_region_folder if has_casc else None, progress_callback)
+                          casc_region_folder if has_casc else None, progress_callback,
+                          source_folder=MPQ_DATA_TO_CASC)
         progress_callback(f"  | 🌍 Missing strings: {translator.summary()}")
 
         # Step 7: remove the temporary converted folder
@@ -111,7 +112,7 @@ def find_file_ci(folder: Path, *parts):
     return current
 
 
-def update_text_files(patch_folder, templates_dir, translator, casc_folder, log):
+def update_text_files(patch_folder, templates_dir, translator, casc_folder, log, source_folder=None):
     ui = find_file_ci(patch_folder, "ui")
     if ui is None:
         log(f"  | ⚠️ UI folder not found in {patch_folder.name}")
@@ -125,7 +126,18 @@ def update_text_files(patch_folder, templates_dir, translator, casc_folder, log)
     for template_rel, target_parts, func in jobs:
         # an original file of the target version is never modified
         if casc_folder is not None and find_file_ci(casc_folder, "ui", *target_parts) is not None:
-            log(f"  | ℹ️ {target_parts[-1]}: original file from the target kept as-is")
+            # World Editor texts: where the target's original is still plain
+            # English, the original 1.27 localized text is preferred
+            source = find_file_ci(source_folder, "ui", *target_parts) if source_folder else None
+            target = find_file_ci(ui, *target_parts)
+            template = templates_dir / template_rel
+            if func is merge_ini_strings and source is not None and target is not None and template.exists():
+                try:
+                    prefer_localized_over_english(target, source, template, log, translator)
+                except Exception as e:
+                    log(f"  | ⛔ Failed to restore 1.27 texts in {target.name}: {e}")
+            else:
+                log(f"  | ℹ️ {target_parts[-1]}: original file from the target kept as-is")
             continue
         template = templates_dir / template_rel
         target = find_file_ci(ui, *target_parts)

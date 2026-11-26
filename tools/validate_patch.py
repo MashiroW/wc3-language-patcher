@@ -77,7 +77,7 @@ def main(zip_path, workspace, lang, templates=None):
     casc = workspace / "CASC_Data" / f"{lang.lower()}.w3mod"
     if casc.exists():
         files = [p for p in casc.rglob("*") if p.is_file() and p.name not in ("placeholder.txt", ".extracted_from_target")]
-        diff = missing = replaced_sound = 0
+        diff = missing = replaced_sound = editor_restored = 0
         homemade = ROOT / "_HomeMade_Data"
         hm = next((d for d in homemade.iterdir() if d.is_dir() and d.name.lower().startswith(lang.lower())), None) if homemade.exists() else None
         hm_files = {str(p.relative_to(hm)).replace("\\", "/").lower() for p in hm.rglob("*") if p.is_file()} if hm else set()
@@ -92,7 +92,9 @@ def main(zip_path, workspace, lang, templates=None):
                     missing += 1
                 continue
             if z.read(n) != p.read_bytes():
-                if rel.lower().startswith("sound/"):
+                if rel.lower() in ("ui/worldeditstrings.txt", "ui/worldeditgamestrings.txt"):
+                    editor_restored += 1  # English values replaced by 1.27 text, on purpose
+                elif rel.lower().startswith("sound/"):
                     replaced_sound += 1
                 elif rel.lower() in hm_files:
                     pass
@@ -101,7 +103,8 @@ def main(zip_path, workspace, lang, templates=None):
         if diff or missing:
             bad(f"target originals: {diff} modified, {missing} missing (of {len(files)})")
         else:
-            ok(f"{len(files)} original target files kept ({replaced_sound} voices replaced by 1.27 on purpose)")
+            ok(f"{len(files)} original target files kept ({replaced_sound} voices replaced by 1.27 on purpose, "
+               f"{editor_restored} World Editor text file(s) with English values restored from 1.27)")
     else:
         warn("no CASC_Data for this language: nothing from the target to check")
 

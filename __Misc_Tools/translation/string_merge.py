@@ -192,3 +192,39 @@ def convert_campaign_strings(target_path, template_path=None, log=print):
             out.append(line)
     write_text(target_path, "\n".join(out) + "\n", bom)
     log(f"  |   |  ✅ Converted {Path(target_path).name} to the 1.31 format")
+
+
+def prefer_localized_over_english(target_path, localized_path, english_template, log=print, translator=None):
+    """Target original kept, except the values that are still plain English:
+    those take the 1.27 localized value when one exists (World Editor texts).
+
+    The target file keeps its own keys, order, comments and already
+    localized values; only lines whose value equals the English reference
+    are replaced. Returns the number of replaced values."""
+    tgt_text, bom = read_text(target_path)
+    localized = _ini_values(read_text(localized_path)[0])
+    english = _ini_values(read_text(english_template)[0])
+    out, replaced, translated = [], 0, 0
+    for line in tgt_text.splitlines():
+        m = INI_KEY_RE.match(line)
+        if m:
+            indent, key, eq, raw = m.groups()
+            en = english.get(key)
+            loc = localized.get(key)
+            if en is not None and raw.strip() == en.strip():
+                if loc is not None and loc.strip() != en.strip():
+                    line = f"{indent}{key}{eq}{loc}"
+                    replaced += 1
+                elif translator is not None:
+                    # no 1.27 text for this key: same rule as missing strings
+                    inner, quoted = _split_quoted(raw)
+                    new = translator.translate(inner)
+                    if new != inner:
+                        line = f'{indent}{key}{eq}"{new}"' if quoted else f"{indent}{key}{eq}{new}"
+                        translated += 1
+        out.append(line)
+    if replaced or translated:
+        write_text(target_path, "\n".join(out) + "\n", bom)
+    log(f"  |   |  📊 {Path(target_path).name}: target original kept, {replaced} English value(s) "
+        f"replaced by the original 1.27 text, {translated} by AI translations")
+    return replaced + translated
