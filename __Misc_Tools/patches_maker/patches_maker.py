@@ -11,7 +11,7 @@ from __Misc_Tools.translation.string_merge import (
 
 
 def build_patch_for_region(progress_callback, mpq_to_casc_path, workspace_dir=None,
-                           resource_dir=None, allow_online_translation=False):
+                           resource_dir=None, allow_online_translation=False, templates_dir=None):
     """Create the patch zip for one region.
 
     workspace_dir: writable folder holding MPQ_Data, CASC_Data and merged/
@@ -28,7 +28,8 @@ def build_patch_for_region(progress_callback, mpq_to_casc_path, workspace_dir=No
         CASC_DATA = base_dir / "CASC_Data"
         MERGED = base_dir / "merged"
         HOMEMADE_DATA = res_dir / "_HomeMade_Data"
-        TEMPLATES = res_dir / "__Misc_Tools"
+        # English reference texts: from the target version when available
+        TEMPLATES = Path(templates_dir) if templates_dir else res_dir / "__Misc_Tools"
 
         for directory in (MPQ_DATA, CASC_DATA, MERGED):
             directory.mkdir(exist_ok=True)
@@ -81,7 +82,8 @@ def build_patch_for_region(progress_callback, mpq_to_casc_path, workspace_dir=No
         # Step 6: bring 1.27 text files to the 1.31 layout
         translator = StringTranslator(region_code, res_dir / "translations", progress_callback,
                                       allow_online=allow_online_translation)
-        update_text_files(region_patch_folder, TEMPLATES, translator, has_casc, progress_callback)
+        update_text_files(region_patch_folder, TEMPLATES, translator,
+                          casc_region_folder if has_casc else None, progress_callback)
         progress_callback(f"  | 🌍 Missing strings: {translator.summary()}")
 
         # Step 7: remove the temporary converted folder
@@ -109,7 +111,7 @@ def find_file_ci(folder: Path, *parts):
     return current
 
 
-def update_text_files(patch_folder, templates_dir, translator, has_casc, log):
+def update_text_files(patch_folder, templates_dir, translator, casc_folder, log):
     ui = find_file_ci(patch_folder, "ui")
     if ui is None:
         log(f"  | ⚠️ UI folder not found in {patch_folder.name}")
@@ -121,6 +123,10 @@ def update_text_files(patch_folder, templates_dir, translator, has_casc, log):
         ("wc3keys_translater/globalstrings_template.fdf", ("framedef", "GlobalStrings.fdf"), merge_fdf_strings),
     ]
     for template_rel, target_parts, func in jobs:
+        # an original file of the target version is never modified
+        if casc_folder is not None and find_file_ci(casc_folder, "ui", *target_parts) is not None:
+            log(f"  | ℹ️ {target_parts[-1]}: original file from the target kept as-is")
+            continue
         template = templates_dir / template_rel
         target = find_file_ci(ui, *target_parts)
         if not template.exists():
@@ -135,18 +141,21 @@ def update_text_files(patch_folder, templates_dir, translator, has_casc, log):
         except Exception as e:
             log(f"  | ⛔ Failed to update {target.name}: {e}")
 
-    # Campaign menus: only needed when the files come from 1.27 (no CASC data)
-    if not has_casc:
-        for template_rel, name in (("campaignstrings_translator/template_1.31.txt", "CampaignStrings.txt"),
-                                   ("campaignstrings_translator/template_exp_1.31.txt", "CampaignStrings_exp.txt")):
-            target = find_file_ci(ui, name)
-            if target is None:
-                log(f"  | ⚠️ {name} not found, campaign menu left untouched")
-                continue
-            try:
-                convert_campaign_strings(target, templates_dir / template_rel, log)
-            except Exception as e:
-                log(f"  | ⛔ Failed to convert {name}: {e}")
+    # Campaign menus: convert only the files that come from 1.27, i.e. those
+    # the target/CASC data does not provide itself (checked file by file)
+    for template_rel, name in (("campaignstrings_translator/template_1.31.txt", "CampaignStrings.txt"),
+                               ("campaignstrings_translator/template_exp_1.31.txt", "CampaignStrings_exp.txt")):
+        if casc_folder is not None and find_file_ci(casc_folder, "ui", name) is not None:
+            log(f"  |   |  ℹ️ {name}: original file from the target kept")
+            continue
+        target = find_file_ci(ui, name)
+        if target is None:
+            log(f"  | ⚠️ {name} not found, campaign menu left untouched")
+            continue
+        try:
+            convert_campaign_strings(target, templates_dir / template_rel, log)
+        except Exception as e:
+            log(f"  | ⛔ Failed to convert {name}: {e}")
 
 
 def extract_region_code(MPQ_DATA_TO_CASC, progress_callback):

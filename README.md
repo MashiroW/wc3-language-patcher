@@ -54,10 +54,16 @@ Manual alternative: extract these from pre-1.30 WC3 with MPQ Editor:
 - `War3x.mpq` → `./MPQ_Data/[REGION]/MPQ/War3x.mpq`
 - `War3xlocal.mpq` → `./MPQ_Data/[REGION]/MPQ/War3xlocal.mpq`
 
-### Step 3: Prepare CASC Data (Optional)
-**Easiest:** select the language, click **Import modern install folder (CASC)...** and pick your modern
-Warcraft III folder (the one containing `.build.info` and `Data`). The locale is extracted to
-`CASC_Data/xxxx.w3mod` automatically. Only the languages installed with the game are stored locally.
+### Step 3: Select the Target Version (CASC)
+In **Target Version (CASC)**, click **...** and pick the Warcraft III install the patch is for
+(1.30+, 1.31 recommended; the folder containing `.build.info` and `Data`). You are asked to confirm it before every build.
+
+At build time the patcher reads the target directly:
+- its **original files in the selected language** (those installed locally) override the 1.27 files and are never modified,
+- its **English texts** define which strings this exact version expects; strings missing from 1.27 are added with AI translations,
+- its file layout is used to place the 1.27 files.
+
+Without a target, the patcher uses `CASC_Data/xxxx.w3mod` (if you filled it) and the bundled 1.31 references.
 
 Manual alternative with CascView, from modern WC3 (1.30+):
 1. Find either:
@@ -71,8 +77,8 @@ Place in `_HomeMade_Data/[REGION]/`:
 - Fixed campaign maps, e.g. maps/campaign/human06.w3m (Mal'Ganis AI fix)
 
 ### Step 5: Build & Apply Patch
-1. Click **Build Patch**
-2. Copy from `merged/`:
+1. Click **Build Patch** and confirm the target version
+2. Click **Open output folder (merged)** (the full path is also shown in the console), then copy:
    * `[REGION]_Patch.zip`
    * `LANGUAGE_CHANGER.bat`
 3. Place these in your Warcraft III installation:

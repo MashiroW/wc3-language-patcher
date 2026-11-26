@@ -1,0 +1,136 @@
+"""Read everything the patcher needs from the TARGET install (CASC, 1.30+).
+
+For one language, prepare_target():
+  1. extracts the target's own files of that language (only those installed
+     locally) into CASC_Data/<lang>.w3mod; they override the 1.27 files,
+  2. extracts the target's English UI text files, used as templates: they
+     define which keys this exact version expects (missing ones get
+     translated),
+  3. writes a structure list (file layout of this version's locale).
+Anything not available locally falls back to the bundled 1.31 data.
+"""
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+
+from .casc import CASCStorage, LOCALE_PREFIX, present_locales, is_reforged_layout
+
+# target English file (inside the locale) -> bundled template it replaces
+TEMPLATE_FILES = {
+    "UI/WorldEditStrings.txt": "worldeditor_translator/worldeditstrings_template.txt",
+    "UI/WorldEditGameStrings.txt": "worldeditor_translator/worldeditgamestrings_template.txt",
+    "UI/FrameDef/GlobalStrings.fdf": "wc3keys_translater/globalstrings_template.fdf",
+    "UI/CampaignStrings.txt": "campaignstrings_translator/template_1.31.txt",
+    "UI/CampaignStrings_exp.txt": "campaignstrings_translator/template_exp_1.31.txt",
+}
+MARKER = ".extracted_from_target"
+
+
+def inspect_target(game_dir):
+    storage = CASCStorage(game_dir)
+    try:
+        return {"version": storage.version, "locales": present_locales(storage)}
+    finally:
+        storage.close()
+
+
+def describe_locales(locales: dict) -> str:
+    full = sorted(k for k, (p, t) in locales.items() if t and p / t > 0.9)
+    return ", ".join(full) if full else "none"
+
+
+def _locale_entries(storage, locale):
+    prefix = LOCALE_PREFIX.format(locale).lower()
+    return prefix, [(n, c) for n, c in storage.root_entries().items() if n.lower().startswith(prefix)]
+
+
+def _folder_is_manual(folder: Path) -> bool:
+    """True if the user put their own CASC files there (keep them)."""
+    if not folder.exists() or (folder / MARKER).exists():
+        return False
+    return any(p.is_file() and p.name != "placeholder.txt" for p in folder.rglob("*"))
+
+
+def prepare_target(game_dir, lang, casc_folder, work_dir, bundled_templates, bundled_structure, log=print):
+    """Returns dict(version, templates_dir, structure_file, locale_files)."""
+    casc_folder, work_dir = Path(casc_folder), Path(work_dir)
+    storage = CASCStorage(game_dir)
+    try:
+        log(f"  | 🎯 Target: Warcraft III {storage.version} ({game_dir})")
+        root = storage.root_entries()
+        actual = next((k[len("War3.w3mod:_Locales/"):].split(".")[0] for k in root
+                       if k.lower().startswith(LOCALE_PREFIX.format(lang).lower())), lang)
+
+        # 1. the target's original files in this language
+        locale_files = 0
+        if _folder_is_manual(casc_folder):
+            log(f"  |   ℹ️ Using the files already placed in CASC_Data/{casc_folder.name}")
+            locale_files = sum(1 for p in casc_folder.rglob("*") if p.is_file())
+        else:
+            if casc_folder.exists():
+                shutil.rmtree(casc_folder)
+            prefix, entries = _locale_entries(storage, actual)
+            present = [(n, c) for n, c in entries if storage.is_present(c)]
+            if entries and is_reforged_layout(storage, actual):
+                log("  |   ⚠️ Reforged 2.0+ target: voices are .ogg there; 1.27 voices are added as .mp3/.wav")
+            for i, (name, ckey) in enumerate(present, 1):
+                rel = name[len(prefix):].replace(":", "/")
+                target = casc_folder.joinpath(*rel.split("/"))
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(storage.read_ckey(ckey))
+                if i % 200 == 0 or i == len(present):
+                    log(f"  |   | 📥 Original {lang} files from target: {i}/{len(present)} ({int(i / len(present) * 100)}%)")
+            casc_folder.mkdir(parents=True, exist_ok=True)
+            (casc_folder / MARKER).write_text(storage.version, encoding="utf-8")
+            locale_files = len(present)
+            if entries:
+                log(f"  |   ✅ {len(present)}/{len(entries)} original {lang} files available in the target"
+                    + ("" if len(present) == len(entries) else " (the rest is not installed locally)"))
+            else:
+                log(f"  |   ℹ️ The target has no {lang} locale: everything comes from 1.27 + translations")
+
+        # 2. English templates of this exact version
+        templates_dir = work_dir / "templates"
+        if templates_dir.exists():
+            shutil.rmtree(templates_dir)
+        shutil.copytree(bundled_templates, templates_dir,
+                        ignore=shutil.ignore_patterns("*.py", "__pycache__"))
+        en_prefix = LOCALE_PREFIX.format("enUS")
+        from_target = []
+        for name, rel in TEMPLATE_FILES.items():
+            ckey = next((c for k, c in root.items() if k.lower() == (en_prefix + name).lower()), None)
+            if ckey is not None and storage.is_present(ckey):
+                (templates_dir / rel).write_bytes(storage.read_ckey(ckey))
+                from_target.append(name.split("/")[-1])
+        if from_target:
+            log(f"  |   ✅ English reference texts read from the target: {', '.join(from_target)}")
+        if len(from_target) < len(TEMPLATE_FILES):
+            log("  |   ℹ️ English texts not installed in the target: bundled 1.31 references used for the rest")
+
+        # 3. file layout of this version (union with the bundled list, which
+        #    also carries the map layout and the 1.31 sound names)
+        lines = []
+        seen = set()
+        for line in Path(bundled_structure).read_text(encoding="utf-8").splitlines():
+            key = line.strip().replace("\\", "/").lower()
+            if key and key not in seen:
+                seen.add(key)
+                lines.append(line.strip())
+        added = 0
+        for k in root:
+            if k.lower().startswith(en_prefix.lower()):
+                rel = k[len(en_prefix):].replace(":", "/")
+                if rel.lower() not in seen:
+                    seen.add(rel.lower())
+                    lines.append(rel)
+                    added += 1
+        structure_file = work_dir / "structure.txt"
+        structure_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        if added:
+            log(f"  |   ℹ️ {added} file path(s) specific to this version added to the layout")
+
+        return {"version": storage.version, "templates_dir": templates_dir,
+                "structure_file": structure_file, "locale_files": locale_files}
+    finally:
+        storage.close()

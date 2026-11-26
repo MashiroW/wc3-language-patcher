@@ -63,6 +63,36 @@ from __Misc_Tools.patches_maker.patches_maker import build_patch_for_region
 from __Misc_Tools.mpq_to_casc_converter.mpq_to_casc_converter import convert_mpq_to_casc
 from __Misc_Tools.mpq_reader.install_extractor import extract_install, find_archives, ARCHIVES
 from __Misc_Tools.casc_reader.casc import CASCStorage, extract_locale, present_locales
+from __Misc_Tools.casc_reader.target import prepare_target, inspect_target, describe_locales
+
+
+def run_region(mpq_path, lang, log, target_dir=None, allow_online=False):
+    """Full pipeline for one language. Returns True on success."""
+    structure = resource_path("__Misc_Tools", "mpq_to_casc_converter", "structure.txt")
+    templates = None
+    if target_dir:
+        prep = prepare_target(
+            target_dir, lang, casc_locale_folder(lang),
+            workspace_dir() / "_work" / lang,
+            resource_path("__Misc_Tools"), structure, log=log)
+        structure, templates = prep["structure_file"], prep["templates_dir"]
+    else:
+        log("  | ℹ️ No target CASC version selected: using CASC_Data and the bundled 1.31 references")
+    result = convert_mpq_to_casc(region_folder_path=mpq_path, progress_callback=log,
+                                 structure_file=structure)
+    if not result:
+        return False
+    ok = build_patch_for_region(
+        progress_callback=log,
+        mpq_to_casc_path=str(mpq_path) + "-converted-to-CASC",
+        workspace_dir=workspace_dir(),
+        resource_dir=resource_dir(),
+        allow_online_translation=allow_online,
+        templates_dir=templates,
+    )
+    if target_dir:
+        shutil.rmtree(workspace_dir() / "_work", ignore_errors=True)
+    return ok
 
 
 def casc_locale_folder(lang):
@@ -94,11 +124,12 @@ class RegionProcessor(QThread):
     finished = pyqtSignal()
     error = pyqtSignal(str)
 
-    def __init__(self, mpq_path, lang, allow_online=False):
+    def __init__(self, mpq_path, lang, allow_online=False, target_dir=None):
         super().__init__()
         self.mpq_path = mpq_path
         self.lang = lang
         self.allow_online = allow_online
+        self.target_dir = target_dir
         self.last_progress = ""
 
     def run(self):
@@ -107,19 +138,8 @@ class RegionProcessor(QThread):
             self.last_progress = message
 
         try:
-            result = convert_mpq_to_casc(
-                region_folder_path=self.mpq_path,
-                progress_callback=progress_callback,
-                structure_file=resource_path("__Misc_Tools", "mpq_to_casc_converter", "structure.txt"),
-            )
-            if result:
-                build_patch_for_region(
-                    progress_callback=progress_callback,
-                    mpq_to_casc_path=self.mpq_path + "-converted-to-CASC",
-                    workspace_dir=workspace_dir(),
-                    resource_dir=resource_dir(),
-                    allow_online_translation=self.allow_online,
-                )
+            run_region(self.mpq_path, self.lang, progress_callback,
+                       target_dir=self.target_dir, allow_online=self.allow_online)
         except Exception as e:
             self.error.emit(f"  | ⛔ Unexpected error for {self.lang}: {e}")
             self.error.emit(traceback.format_exc())
@@ -204,6 +224,29 @@ class CustomMainWindow(QMainWindow):
         right_layout.setContentsMargins(5, 5, 5, 5)
         right_layout.setSpacing(10)
         
+        # Target version (CASC install the patch is built for)
+        target_group = QGroupBox("Target Version (CASC)")
+        target_layout = QVBoxLayout()
+        target_row = QHBoxLayout()
+        self.target_edit = QLineEdit()
+        self.target_edit.setReadOnly(True)
+        self.target_edit.setPlaceholderText("Warcraft III 1.30+ folder (contains .build.info) - 1.31 recommended")
+        self.target_browse = QPushButton("...")
+        self.target_browse.setFixedSize(25, 25)
+        self.target_browse.setToolTip("Select the target Warcraft III install")
+        self.target_clear = QPushButton("x")
+        self.target_clear.setFixedSize(25, 25)
+        self.target_clear.setToolTip("No target: use CASC_Data and the bundled 1.31 references")
+        target_row.addWidget(self.target_edit, 1)
+        target_row.addWidget(self.target_browse)
+        target_row.addWidget(self.target_clear)
+        target_layout.addLayout(target_row)
+        self.target_info = QLabel("")
+        self.target_info.setWordWrap(True)
+        target_layout.addWidget(self.target_info)
+        target_group.setLayout(target_layout)
+        right_layout.addWidget(target_group)
+
         # Language Selection Group
         lang_group = QGroupBox("Language Configuration")
         lang_layout = QHBoxLayout()
@@ -226,14 +269,6 @@ class CustomMainWindow(QMainWindow):
             "Pick a Warcraft III 1.27 folder containing war3.mpq, War3x.mpq, War3xlocal.mpq "
             "and War3Patch.mpq.\nThe archives are extracted to MPQ_Data automatically.")
         right_layout.addWidget(self.import_button)
-
-        # Import a modern (1.30+) install directly (replaces the manual CascView step)
-        self.casc_button = QPushButton("Import modern install folder (CASC) for selected language...")
-        self.casc_button.setToolTip(
-            "Pick a Warcraft III 1.30+ / Reforged folder (the one containing .build.info and Data).\n"
-            "The selected language's locale is extracted to CASC_Data automatically.\n"
-            "Only languages installed with the game are available.")
-        right_layout.addWidget(self.casc_button)
 
         self.online_checkbox = QCheckBox("Online translation for strings without a bundled translation")
         self.online_checkbox.setToolTip(
@@ -304,8 +339,11 @@ class CustomMainWindow(QMainWindow):
         # Load saved settings
         self.selected_languages = self.detect_existing_languages()
         saved_langs = self.settings.value("selected_languages", [])
-        for lang_data in saved_langs:
+        for lang_data in saved_langs or []:
+            lang_data = list(lang_data)
             lang = lang_data[0]
+            if isinstance(lang_data[1], str):
+                lang_data[1] = lang_data[1].lower() == "true"
             if lang not in [item[0] for item in self.selected_languages]:
                 self.selected_languages.append(tuple(lang_data))
         
@@ -316,7 +354,9 @@ class CustomMainWindow(QMainWindow):
         self.remove_button.clicked.connect(self.remove_language)
         self.patch_button.clicked.connect(self.patch_languages)
         self.import_button.clicked.connect(self.import_install)
-        self.casc_button.clicked.connect(self.import_casc)
+        self.target_browse.clicked.connect(self.browse_target)
+        self.target_clear.clicked.connect(lambda: self.set_target(""))
+        self.set_target(self.settings.value("target_casc", "", type=str), quiet=True)
 
         # Add this after initializing the settings
         self.media_player = None
@@ -638,7 +678,13 @@ class CustomMainWindow(QMainWindow):
             self.log_message("No languages selected for patching!")
             return
             
+        if not self.confirm_target():
+            return
         self.log_message("Starting patch process...")
+        self.log_message(f"🎯 Target: {self.target_dir or 'none (CASC_Data + bundled 1.31 references)'}")
+        for lang, ignore, _, _ in self.selected_languages:
+            if ignore:
+                self.log_message(f"  ⏭️ {lang} skipped (Skip is checked)")
         
         # Disable UI during processing
         self.set_ui_enabled(False)
@@ -662,7 +708,8 @@ class CustomMainWindow(QMainWindow):
         """Enable/disable UI elements during processing and update styles"""
         self.patch_button.setEnabled(enabled)
         self.import_button.setEnabled(enabled)
-        self.casc_button.setEnabled(enabled)
+        self.target_browse.setEnabled(enabled)
+        self.target_clear.setEnabled(enabled)
         self.add_button.setEnabled(enabled)
         self.remove_button.setEnabled(enabled)
         self.lang_table.setEnabled(enabled)
@@ -709,7 +756,8 @@ class CustomMainWindow(QMainWindow):
         self.log_message(f"MPQ Path: {rel_mpq_path}")
         
         # Create and start worker
-        self.worker = RegionProcessor(mpq_path, lang, allow_online=self.online_checkbox.isChecked())
+        self.worker = RegionProcessor(mpq_path, lang, allow_online=self.online_checkbox.isChecked(),
+                                      target_dir=self.target_dir or None)
         self.worker.progress.connect(self.log_message)
         self.worker.error.connect(self.log_message)
         self.worker.finished.connect(self.process_next_language)
@@ -738,6 +786,60 @@ class CustomMainWindow(QMainWindow):
         self.importer.progress.connect(self.log_message)
         self.importer.done.connect(self.import_finished)
         self.importer.start()
+
+    def set_target(self, folder, quiet=False):
+        self.target_dir = ""
+        self.target_edit.setText("")
+        self.target_info.setText("No target selected: CASC_Data and the bundled 1.31 references are used.")
+        if folder:
+            try:
+                info = inspect_target(folder)
+            except Exception as e:
+                if not quiet:
+                    QMessageBox.warning(self, "Cannot read install",
+                                        f"This folder is not a readable Warcraft III 1.30+ install:\n{e}")
+                self.settings.setValue("target_casc", "")
+                return False
+            self.target_dir = folder
+            self.target_edit.setText(folder)
+            self.target_info.setText(f"Warcraft III {info['version']} - installed languages: "
+                                     f"{describe_locales(info['locales'])}")
+            if not quiet:
+                self.log_message(f"🎯 Target set: Warcraft III {info['version']} ({folder})")
+        self.settings.setValue("target_casc", self.target_dir)
+        return True
+
+    def browse_target(self):
+        folder = QFileDialog.getExistingDirectory(
+            self, "Select the target Warcraft III install (1.30+, contains .build.info and Data)",
+            self.target_dir or "")
+        if not folder:
+            return False
+        if not (Path(folder) / ".build.info").exists():
+            QMessageBox.warning(self, "Not a CASC install",
+                                "This folder has no .build.info file.\n"
+                                "Select the main folder of a Warcraft III 1.30+ install.")
+            return False
+        return self.set_target(folder)
+
+    def confirm_target(self):
+        """Asked before every build, like the original tool."""
+        box = QMessageBox(self)
+        box.setWindowTitle("Target version")
+        if self.target_dir:
+            box.setText(f"Build the patch for this target?\n\n{self.target_edit.text()}\n{self.target_info.text()}")
+            use = box.addButton("Build", QMessageBox.AcceptRole)
+        else:
+            box.setText("No target CASC version is selected.\n\nSelect the Warcraft III install the patch is for "
+                        "(1.31 recommended), or build with CASC_Data and the bundled 1.31 references.")
+            use = box.addButton("Build without target", QMessageBox.AcceptRole)
+        change = box.addButton("Select target...", QMessageBox.ActionRole)
+        box.addButton(QMessageBox.Cancel)
+        box.exec_()
+        clicked = box.clickedButton()
+        if clicked == change:
+            return self.browse_target()
+        return clicked == use
 
     def update_output_button(self):
         merged = self.base_path / "merged"
@@ -848,7 +950,7 @@ def run_headless(args):
     """Command-line mode (no window), also used to test the frozen build:
         WC3LanguagePatcher.exe --import <lang> <1.27 folder>
         WC3LanguagePatcher.exe --import-casc <modern game folder> <lang>
-        WC3LanguagePatcher.exe --build <lang> [--online]
+        WC3LanguagePatcher.exe --build <lang> [--target <modern game folder>] [--online]
     Output goes to patcher.log in the workspace folder."""
     log_path = workspace_dir() / "patcher.log"
     with open(log_path, "a", encoding="utf-8") as log_file:
@@ -869,14 +971,9 @@ def run_headless(args):
             if args[0] == "--build" and len(args) >= 2:
                 lang = args[1]
                 mpq_path = str(workspace_dir() / "MPQ_Data" / f"{lang}-MPQ")
-                result = convert_mpq_to_casc(
-                    mpq_path, log,
-                    structure_file=resource_path("__Misc_Tools", "mpq_to_casc_converter", "structure.txt"))
-                if not result:
-                    return 1
-                ok = build_patch_for_region(log, mpq_path + "-converted-to-CASC",
-                                            workspace_dir=workspace_dir(), resource_dir=resource_dir(),
-                                            allow_online_translation="--online" in args)
+                target = args[args.index("--target") + 1] if "--target" in args else None
+                ok = run_region(mpq_path, lang, log, target_dir=target,
+                                allow_online="--online" in args)
                 return 0 if ok else 1
             log(run_headless.__doc__)
             return 2
@@ -924,5 +1021,16 @@ if __name__ == "__main__":
     # Create patcher window
     window = CustomMainWindow(EditorOpenGLwidget=scene_widget)
     window.show()
-    
+
+    # Never fail silently: unexpected errors go to the console and patcher.log
+    def _excepthook(exc_type, exc, tb):
+        text = "".join(traceback.format_exception(exc_type, exc, tb))
+        _log_startup("Unexpected error:\n" + text)
+        try:
+            window.log_message(f"⛔ Unexpected error: {exc}\n{text}")
+            window.set_ui_enabled(True)
+        except Exception:
+            pass
+    sys.excepthook = _excepthook
+
     sys.exit(app.exec_())
