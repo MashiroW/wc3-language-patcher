@@ -63,7 +63,8 @@ from __Misc_Tools.patches_maker.patches_maker import build_patch_for_region
 from __Misc_Tools.mpq_to_casc_converter.mpq_to_casc_converter import convert_mpq_to_casc
 from __Misc_Tools.mpq_reader.install_extractor import extract_install, find_archives, ARCHIVES
 from __Misc_Tools.casc_reader.casc import CASCStorage, extract_locale, present_locales
-from __Misc_Tools.casc_reader.target import prepare_target, inspect_target, describe_locales
+from __Misc_Tools.casc_reader.target import prepare_target, inspect_target, describe_locales, MARKER
+from __Misc_Tools.game_version import mpq_install_version, short_casc_version
 
 
 def run_region(mpq_path, lang, log, target_dir=None, allow_online=False, source_dir=None,
@@ -714,7 +715,9 @@ class CustomMainWindow(QMainWindow):
                 tip = f"MPQ_Data/{lang}-MPQ (extracted files)\nClick to choose an install folder instead"
             else:
                 tip = "No source yet: select the Warcraft III install of this language (contains war3.mpq)"
-            label = "Open MPQ"
+            # game version next to the button text, when it can be read
+            mpq_version = mpq_install_version(self.sources.get(lang)) if self.source_ok(lang) else ""
+            label = f"Open MPQ ({mpq_version})" if mpq_version else "Open MPQ"
             src_btn = QPushButton(label)
             src_btn.setToolTip(tip)
             if has_missing_path:
@@ -722,7 +725,8 @@ class CustomMainWindow(QMainWindow):
             src_btn.clicked.connect(lambda _, l=lang: self.choose_source(l))
             self.lang_table.setCellWidget(i, 2, src_btn)
             
-            casc_btn = QPushButton("Open CASC")
+            casc_version = self.casc_version(casc_path)
+            casc_btn = QPushButton(f"Open CASC ({casc_version})" if casc_version else "Open CASC")
             casc_btn.setToolTip(casc_path)
             casc_btn.setEnabled(casc_exists)
             if not casc_exists:
@@ -733,6 +737,17 @@ class CustomMainWindow(QMainWindow):
         self.lang_table.resizeColumnsToContents()
         self.lang_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.lang_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+
+    def casc_version(self, casc_path):
+        """Version of the CASC data of a row: the version it was extracted from,
+        else the selected target's version."""
+        marker = os.path.join(casc_path, MARKER)
+        try:
+            with open(marker, encoding="utf-8") as f:
+                version = f.read().strip()
+        except OSError:
+            version = getattr(self, "target_version", "")
+        return short_casc_version(version)
 
     def toggle_ignore(self, row, state):
         lang, _, rel_mpq_path, rel_casc_path = self.selected_languages[row]
@@ -878,6 +893,7 @@ class CustomMainWindow(QMainWindow):
 
     def set_target(self, folder, quiet=False):
         self.target_dir = ""
+        self.target_version = ""
         self.target_edit.setText("")
         self.target_info.setText("No target selected: CASC_Data and the bundled 1.31 references are used.")
         if folder:
@@ -890,12 +906,15 @@ class CustomMainWindow(QMainWindow):
                 self.settings.setValue("target_casc", "")
                 return False
             self.target_dir = folder
+            self.target_version = info["version"]
             self.target_edit.setText(folder)
             self.target_info.setText(f"Warcraft III {info['version']} - installed languages: "
                                      f"{describe_locales(info['locales'])}")
             if not quiet:
                 self.log_message(f"🎯 Target set: Warcraft III {info['version']} ({folder})")
         self.settings.setValue("target_casc", self.target_dir)
+        if hasattr(self, "lang_table"):
+            self.update_lang_table()  # the CASC version shown on each row may change
         return True
 
     def browse_target(self):
