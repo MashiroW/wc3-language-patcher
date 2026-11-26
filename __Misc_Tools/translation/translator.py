@@ -29,7 +29,7 @@ REGION_TO_ONLINE_LANG = {
 
 # Game-specific tokens that must never be translated or altered.
 _PROTECT_RE = re.compile(
-    r"\|c[0-9a-fA-F]{8}|\|r|\|n|\|N"        # colour codes / line breaks
+    r"\|[cC][0-9a-fA-F]{8}|\|[rR]|\|[nN]"        # colour codes / line breaks
     r"|%\d*\$?[-+ #0]*\d*(?:\.\d+)?[sdifuxXc%]"  # printf-style
     r"|<[^<>]+>"                              # <AHbz,DataA1> data references
     r"|\$[A-Za-z0-9_]+\$"                     # $var$
