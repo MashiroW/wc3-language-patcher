@@ -273,6 +273,19 @@ class CustomMainWindow(QMainWindow):
         lang_group.setLayout(lang_layout)
         right_layout.addWidget(lang_group)
 
+        # Language Table
+        self.lang_table = QTableWidget()
+        self.lang_table.setColumnCount(4)
+        self.lang_table.setHorizontalHeaderLabels(["Language", "Skip", "Source (MPQ)", "Target (CASC)"])
+        self.lang_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.lang_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.lang_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.lang_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        self.lang_table.verticalHeader().setVisible(False)
+        self.lang_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.lang_table.setSelectionMode(QTableWidget.SingleSelection)
+        right_layout.addWidget(self.lang_table)
+        
         # Translation of the strings the 1.27 version never had
         tr_group = QGroupBox("Missing Strings")
         tr_layout = QVBoxLayout()
@@ -298,19 +311,6 @@ class CustomMainWindow(QMainWindow):
         tr_group.setLayout(tr_layout)
         right_layout.addWidget(tr_group)
 
-        # Language Table
-        self.lang_table = QTableWidget()
-        self.lang_table.setColumnCount(4)
-        self.lang_table.setHorizontalHeaderLabels(["Language", "Skip", "1.27 Source (MPQ)", "CASC Path"])
-        self.lang_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.lang_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.lang_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self.lang_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
-        self.lang_table.verticalHeader().setVisible(False)
-        self.lang_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.lang_table.setSelectionMode(QTableWidget.SingleSelection)
-        right_layout.addWidget(self.lang_table)
-        
         # Patch Button
         self.patch_button = QPushButton("BUILD PATCH")
         self.patch_button.setStyleSheet("""
@@ -698,20 +698,23 @@ class CustomMainWindow(QMainWindow):
             chk = QCheckBox()
             chk.setChecked(ignore)
             chk.stateChanged.connect(lambda state, row=i: self.toggle_ignore(row, state))
+            chk_cell = QWidget()
+            chk_layout = QHBoxLayout(chk_cell)
+            chk_layout.setContentsMargins(0, 0, 0, 0)
+            chk_layout.setAlignment(Qt.AlignCenter)
+            chk_layout.addWidget(chk)
             if has_missing_path:
-                chk.setStyleSheet("background-color: rgb(255, 165, 0);")
-            self.lang_table.setCellWidget(i, 1, chk)
+                chk_cell.setStyleSheet("background-color: rgb(255, 165, 0);")
+            self.lang_table.setCellWidget(i, 1, chk_cell)
 
-            # 1.27 source: the install folder (read directly) or MPQ_Data filled by hand
+            # source: the install folder (read directly) or MPQ_Data filled by hand
             if self.source_ok(lang):
-                label = Path(self.sources[lang]).name or self.sources[lang]
                 tip = f"{self.sources[lang]}\nClick to change"
             elif self.extracted_folder(lang) is not None:
-                label = f"MPQ_Data/{lang}-MPQ"
-                tip = "Extracted files in MPQ_Data are used.\nClick to choose a 1.27 install folder instead"
+                tip = f"MPQ_Data/{lang}-MPQ (extracted files)\nClick to choose an install folder instead"
             else:
-                label = "Choose 1.27 folder..."
-                tip = "Select the Warcraft III 1.27 install of this language (contains war3.mpq)"
+                tip = "No source yet: select the Warcraft III install of this language (contains war3.mpq)"
+            label = "Open MPQ"
             src_btn = QPushButton(label)
             src_btn.setToolTip(tip)
             if has_missing_path:
@@ -720,12 +723,12 @@ class CustomMainWindow(QMainWindow):
             self.lang_table.setCellWidget(i, 2, src_btn)
             
             casc_btn = QPushButton("Open CASC")
+            casc_btn.setToolTip(casc_path)
             casc_btn.setEnabled(casc_exists)
             if not casc_exists:
                 casc_btn.setStyleSheet("color: gray;")
             casc_btn.clicked.connect(lambda _, path=casc_path: self.show_in_explorer(path))
             self.lang_table.setCellWidget(i, 3, casc_btn)
-            self.lang_table.setItem(i, 3, casc_item)
         
         self.lang_table.resizeColumnsToContents()
         self.lang_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
