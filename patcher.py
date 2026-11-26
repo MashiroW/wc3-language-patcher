@@ -44,9 +44,20 @@ from io import StringIO
 try:
     from OpenGLWorldEditor import MainWindow as EditorMainWindow
     OPENGL_IMPORT_ERROR = None
+    OPENGL_IMPORT_TRACE = ""
 except Exception as _e:  # ImportError, OpenGL errors...
     EditorMainWindow = None
     OPENGL_IMPORT_ERROR = _e
+    OPENGL_IMPORT_TRACE = traceback.format_exc()
+
+
+def _log_startup(msg):
+    print(msg)
+    try:
+        with open(workspace_dir() / "patcher.log", "a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+    except OSError:
+        pass
 
 from __Misc_Tools.patches_maker.patches_maker import build_patch_for_region
 from __Misc_Tools.mpq_to_casc_converter.mpq_to_casc_converter import convert_mpq_to_casc
@@ -768,12 +779,19 @@ if __name__ == "__main__":
             # Load scene with built-in progress dialog
             Editorwindow.opengl_widget.load_scene(str(resource_path("test_scene.json")), parent=Editorwindow)
             scene_widget = Editorwindow.opengl_widget
-        except Exception as e:
-            print(f"3D scene disabled: {e}")
+        except Exception:
+            _log_startup("3D scene disabled:\n" + traceback.format_exc())
             scene_widget = None
+    elif EditorMainWindow is None:
+        _log_startup(f"3D engine import failed: {OPENGL_IMPORT_ERROR!r}\n{OPENGL_IMPORT_TRACE}")
 
     if scene_widget is None:
-        scene_widget = QLabel("WC3 Localization Patcher")
+        hint = ""
+        err = f"{OPENGL_IMPORT_ERROR}" if OPENGL_IMPORT_ERROR else ""
+        if "206" in err or "trop long" in err or "too long" in err or len(str(resource_dir())) > 150:
+            hint = ("\n\n3D background unavailable: the folder path is too long for Windows.\n"
+                    "Move the WC3LanguagePatcher folder somewhere shorter (e.g. C:\\WC3Patcher).")
+        scene_widget = QLabel("WC3 Localization Patcher" + hint)
         scene_widget.setAlignment(Qt.AlignCenter)
         scene_widget.setStyleSheet("background-color: #10131a; color: #c8a24a; font-size: 28px; font-weight: bold;")
 
