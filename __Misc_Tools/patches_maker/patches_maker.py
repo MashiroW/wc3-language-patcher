@@ -260,13 +260,27 @@ def clean_folder(folder_path, progress_callback):
     progress_callback(f"  | 🧹 Cleanup complete | Dirs: {removed_dirs}, Files: {removed_files}")
 
 
+BACKUP_MAPS_MARKER = "maps patch (1.27 backup)"
+
+
+def normalize_arcname(rel: Path) -> str:
+    """1.31 layout: every folder and file name in lower case, except the
+    "<Language> Maps Patch (1.27 backup)" folder and its map names (shown as
+    is in the game's map list, as in the original releases)."""
+    parts = list(rel.parts)
+    for i, part in enumerate(parts):
+        if BACKUP_MAPS_MARKER in part.lower():
+            return "/".join([p.lower() for p in parts[:i]] + parts[i:])
+    return "/".join(p.lower() for p in parts)
+
+
 def zip_and_remove(folder_path, progress_callback):
     """Create zip archive and remove original folder"""
     if not folder_path.exists():
         progress_callback(f"  | ⚠️ Nothing to zip: {folder_path} not found")
         return
 
-    zip_path = folder_path.with_suffix(".zip")
+    zip_path = folder_path.parent / f"{folder_path.name.lower()}.zip"
     if zip_path.exists():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_path = zip_path.with_name(f"{zip_path.stem}_{timestamp}.zip")
@@ -279,9 +293,15 @@ def zip_and_remove(folder_path, progress_callback):
 
     total_files = len(all_files)
     try:
+        written = set()
         with ZipFile(zip_path, "w") as zipf:
             for processed, file in enumerate(all_files, 1):
-                zipf.write(file, file.relative_to(folder_path))
+                arcname = normalize_arcname(file.relative_to(folder_path))
+                if arcname.lower() in written:
+                    progress_callback(f"  | ⚠️ Duplicate path ignored (case only): {arcname}")
+                    continue
+                written.add(arcname.lower())
+                zipf.write(file, arcname)
                 if processed % 50 == 0 or processed == total_files:
                     progress_callback(f"  |   |   Zipping: {processed}/{total_files} ({int(processed / total_files * 100)}%)")
 

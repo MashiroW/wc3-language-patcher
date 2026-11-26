@@ -68,8 +68,13 @@ def load_structure(structure_file: Path):
     with open(structure_file, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip().replace("\\", "/")
-            if line and line.lower() not in _IGNORED_STRUCTURE_ENTRIES:
-                entries.append(line)
+            if not line or line.lower() in _IGNORED_STRUCTURE_ENTRIES:
+                continue
+            # Reforged-style map folders (maps/.../x.w3x/war3map.j): 1.31 uses map
+            # files, and matching their content would create a folder named x.w3x
+            if any(p.lower().endswith((".w3m", ".w3x")) for p in line.split("/")[:-1]):
+                continue
+            entries.append(line)
     return entries
 
 
@@ -180,6 +185,22 @@ def convert_mpq_to_casc(region_folder_path, progress_callback=None, structure_fi
         for folder in [maps_dest, roc_scenario_dest, frozen_throne_dest, tft_scenario_dest]:
             folder.mkdir(parents=True, exist_ok=True)
 
+        # Loose maps of the 1.27 install (Maps/, Maps/Scenario, Maps/FrozenThrone, ...):
+        # the localized melee/scenario maps, kept as the "1.27 backup" set
+        if install_dir:
+            maps_root = find_child_ci(Path(install_dir), "Maps")
+            if maps_root is not None:
+                for f in maps_root.rglob("*"):
+                    if not f.is_file() or f.suffix.lower() not in (".w3m", ".w3x"):
+                        continue
+                    rel = f.relative_to(maps_root)
+                    if any(p.lower() in ("campaign", "download") for p in rel.parts[:-1]):
+                        continue
+                    dest = maps_dest.joinpath(*rel.parts)
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(f, dest)
+                    maps_copied += 1
+
         # War3x.mpq root: melee / scenario maps (1.27 balance backup)
         for name, handle in source.children("War3x.mpq"):
             low = name.lower()
@@ -216,6 +237,12 @@ def convert_mpq_to_casc(region_folder_path, progress_callback=None, structure_fi
                 source.write(handle, destinations[0] / name)
                 shutil.copy2(destinations[0] / name, destinations[1] / name)
                 maps_copied += 1
+
+        # Cinematic audio (movies/audio/*.mp3) from the 1.27 Movies/*.mpq videos;
+        # hand-made files in _HomeMade_Data still override them later
+        if install_dir:
+            from __Misc_Tools.mpq_reader.avi_audio import extract_cinematic_audio
+            extract_cinematic_audio(install_dir, output_folder / "movies" / "audio", progress_callback)
 
         progress_callback(f"  | ✅ MPQ data converted to CASC format "
                           f"({copied} files, {missing} not present in 1.27, {maps_copied} maps)")
