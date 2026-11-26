@@ -168,3 +168,72 @@ class CASCStorage:
     def close(self):
         for f in self._files.values():
             f.close()
+
+
+# ------------------------------------------------------------ extraction ---
+LOCALE_PREFIX = "War3.w3mod:_Locales/{}.w3mod:"
+
+
+def present_locales(storage: CASCStorage) -> dict:
+    """locale code -> (files present locally, files listed in the root)."""
+    stats = {}
+    rx = re.compile(r"^War3\.w3mod:_Locales/([A-Za-z]{4})\.w3mod:", re.I)
+    for name, ckey in storage.root_entries().items():
+        m = rx.match(name)
+        if not m:
+            continue
+        loc = m.group(1)
+        present, total = stats.get(loc, (0, 0))
+        stats[loc] = (present + (1 if storage.is_present(ckey) else 0), total + 1)
+    return stats
+
+
+def _is_present(self, ckey: bytes) -> bool:
+    ek = self.ckey_to_ekey.get(ckey)
+    return ek is not None and ek[:self._key_len] in self.index
+
+
+CASCStorage.is_present = _is_present
+
+
+def is_reforged_layout(storage: CASCStorage, locale: str) -> bool:
+    """Reforged 2.0+ stores voices as .ogg (1.30-1.32: .mp3/.wav) and adds Strings/*.fdf."""
+    prefix = LOCALE_PREFIX.format(locale).lower()
+    return any(k.lower().startswith(prefix) and k.lower().endswith(".ogg") for k in storage.root_entries())
+
+
+def extract_locale(game_dir, locale: str, out_dir, log=print, progress=None):
+    """Extract War3.w3mod:_Locales/<locale>.w3mod:* into out_dir (CascView layout).
+
+    Files listed in the root but not installed locally are skipped and counted.
+    Returns (extracted, missing, failed list)."""
+    storage = CASCStorage(game_dir)
+    try:
+        prefix = LOCALE_PREFIX.format(locale).lower()
+        entries = [(n, c) for n, c in storage.root_entries().items() if n.lower().startswith(prefix)]
+        if not entries:
+            raise CASCError(f"locale {locale} not found in this install (version {storage.version})")
+        if is_reforged_layout(storage, locale):
+            log(f"  | ⚠️ Warcraft III {storage.version}: Reforged 2.0+ layout (voices in .ogg, "
+                "Strings/*.fdf). Text files are compatible, but the sound files differ from 1.31.")
+        out_dir = Path(out_dir)
+        extracted, missing, failed = 0, 0, []
+        total = len(entries)
+        for i, (name, ckey) in enumerate(entries, 1):
+            rel = name[len(prefix):].replace(":", "/")
+            if not storage.is_present(ckey):
+                missing += 1
+            else:
+                try:
+                    data = storage.read_ckey(ckey)
+                    target = out_dir.joinpath(*rel.split("/"))
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
+                    extracted += 1
+                except Exception as e:
+                    failed.append((rel, str(e)))
+            if progress and (i % 100 == 0 or i == total):
+                progress(i, total)
+        return extracted, missing, failed
+    finally:
+        storage.close()

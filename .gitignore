@@ -7,3 +7,5 @@ build/
 dist/
 translations/_todo/
 __pycache__/
+dist_new/
+RAPPORT.md
