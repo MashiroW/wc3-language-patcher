@@ -105,14 +105,20 @@ class _OnlineBackend:
     def translate(self, text: str) -> str | None:
         if self.disabled:
             return None
-        for backend in (self._google, self._mymemory):
-            try:
-                out = backend(text)
-                if out:
-                    return out
-            except Exception as e:  # network error, 429, quota...
-                self.log(f"  |   |   ⚠️ online translation ({backend.__name__[1:]}) failed: {e}")
-        # both failed: stop trying for the rest of the run
+        # a rate limit (429) or a network hiccup is usually temporary: wait and
+        # retry a few times before giving up for the rest of the run
+        for attempt, pause in enumerate((0, 10, 30, 60, 120)):
+            if pause:
+                self.log(f"  |   |   ⏳ online translation busy, retrying in {pause} s ({attempt}/4)")
+                time.sleep(pause)
+            for backend in (self._google, self._mymemory):
+                try:
+                    out = backend(text)
+                    if out:
+                        return out
+                except Exception as e:  # network error, 429, quota...
+                    self.log(f"  |   |   ⚠️ online translation ({backend.__name__[1:]}) failed: {e}")
+        # still failing after the retries: stop trying for the rest of the run
         self.disabled = True
         self.log("  |   |   ⚠️ Online translation unavailable, keeping English for the remaining strings")
         return None
