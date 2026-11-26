@@ -27,7 +27,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 # Add to Python path (insert at beginning for priority)
 sys.path.insert(0, current_dir)
 
-from app_paths import resource_path, resource_dir, workspace_dir
+from app_paths import resource_path, resource_dir, workspace_dir, ensure_workspace_folders
 
 os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
 
@@ -354,9 +354,8 @@ class CustomMainWindow(QMainWindow):
         self.mpq_base_path = self.base_path / "MPQ_Data"
         self.casc_base_path = self.base_path / "CASC_Data"
         
-        # Create directories if needed
-        self.mpq_base_path.mkdir(exist_ok=True)
-        self.casc_base_path.mkdir(exist_ok=True)
+        # Create the folders (with a placeholder.txt explaining each one)
+        ensure_workspace_folders(self.base_path)
         self.update_output_button()
         
         # Load saved settings
@@ -1064,6 +1063,7 @@ def run_headless(args):
       --no-online  no online translation for strings without a bundled translation
       --empty      with --no-online: leave those strings empty instead of English
     Output goes to patcher.log in the workspace folder."""
+    ensure_workspace_folders(workspace_dir())
     log_path = workspace_dir() / "patcher.log"
     with open(log_path, "a", encoding="utf-8") as log_file:
         def log(msg):
