@@ -196,11 +196,17 @@ def convert_mpq_to_casc(region_folder_path, progress_callback=None, structure_fi
     # 2. War3xlocal.mpq\Maps\FrozenThrone\Campaign\*.w3x -> maps/FrozenThrone/Campaign/
     tft_campaign_folder = find_path_ci(region_folder, "War3xlocal.mpq", "Maps", "FrozenThrone", "Campaign")
     if tft_campaign_folder:
-        tft_campaign_dest = output_folder / "maps" / "FrozenThrone" / "Campaign"
-        tft_campaign_dest.mkdir(parents=True, exist_ok=True)
+        # The 1.31 campaign menu points to "Campaign\FrozenThrone\X.w3x" (same convention as
+        # RoC's "Campaign\Human01.w3m" -> maps/campaign/), so the localized TFT maps go to
+        # maps/campaign/FrozenThrone/. The old 1.27-style location is kept as well.
+        destinations = [output_folder / "maps" / "campaign" / "FrozenThrone",
+                        output_folder / "maps" / "FrozenThrone" / "Campaign"]
+        for dest in destinations:
+            dest.mkdir(parents=True, exist_ok=True)
         for map_file in tft_campaign_folder.iterdir():
             if map_file.suffix.lower() == ".w3x":
-                shutil.copy2(map_file, tft_campaign_dest / map_file.name)
+                for dest in destinations:
+                    shutil.copy2(map_file, dest / map_file.name)
                 maps_copied += 1
 
     progress_callback(f"  | ✅ MPQ data converted to CASC format "

@@ -10,3 +10,6 @@ __pycache__/
 dist_new/
 RAPPORT.md
 dist_build/
+_e2e/
+dist_build2/
+dist_build_old/
