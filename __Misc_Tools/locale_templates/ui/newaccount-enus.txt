@@ -1,0 +1,5 @@
+﻿Creating New Accounts:
+
+Please note that inactive accounts are deleted at regular times. If you create a new account, you must be logged into Battle.net long enough (either in one session, or spread over several) to have accumulated 2 hours of time within the first 48 hours. After that, your account becomes permanent so long as you continue to log into this account once every three months.
+
+PLEASE WRITE DOWN YOUR PASSWORD. BLIZZARD DOES NOT HAVE ACCESS TO PASSWORDS, AND CANNOT FIND OR REPLACE FORGOTTEN PASSWORDS.

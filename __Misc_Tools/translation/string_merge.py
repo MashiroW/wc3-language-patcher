@@ -228,3 +228,111 @@ def prefer_localized_over_english(target_path, localized_path, english_template,
     log(f"  |   |  📊 {Path(target_path).name}: target original kept, {replaced} English value(s) "
         f"replaced by the original 1.27 text, {translated} by AI translations")
     return replaced + translated
+
+
+_SECTION_RE = re.compile(r"^\s*\[([^\]]+)\]\s*$")
+
+
+def complete_ini_sections(template_path, target_path, translator, log=print):
+    """Sectioned INI files (units/*strings.txt, ui/miscui.txt...).
+
+    The 1.27 file is kept as it is; keys that the newer version added are
+    inserted at the end of their section (new sections are appended), with
+    their English value translated when it is text. Returns keys added."""
+    tpl_text, _ = read_text(template_path)
+    tgt_text, bom = read_text(target_path)
+
+    tpl = {}
+    order = []
+    sec = ""
+    for line in tpl_text.splitlines():
+        m = _SECTION_RE.match(line)
+        if m:
+            sec = m.group(1)
+            if sec not in tpl:
+                tpl[sec] = []
+                order.append(sec)
+            continue
+        m = INI_KEY_RE.match(line)
+        if m:
+            tpl.setdefault(sec, [])
+            if sec not in order:
+                order.append(sec)
+            tpl[sec].append((m.group(2), m.group(4)))
+
+    lines = tgt_text.splitlines()
+    have, last_line = {}, {}
+    sec = ""
+    for i, line in enumerate(lines):
+        m = _SECTION_RE.match(line)
+        if m:
+            sec = m.group(1)
+            have.setdefault(sec, set())
+            last_line[sec] = i
+            continue
+        m = INI_KEY_RE.match(line)
+        if m:
+            have.setdefault(sec, set()).add(m.group(2))
+            last_line[sec] = i
+
+    inserts, appended, added, translated = {}, [], 0, 0
+    for sec in order:
+        missing = [(k, v) for k, v in tpl.get(sec, []) if k not in have.get(sec, set())]
+        if not missing:
+            continue
+        new_lines = []
+        for key, raw in missing:
+            inner, quoted = _split_quoted(raw)
+            new = translator.translate(inner) if inner else inner
+            if new != inner:
+                translated += 1
+            new_lines.append(f'{key}="{new}"' if quoted else f"{key}={new}")
+            added += 1
+        if sec in last_line:
+            inserts.setdefault(last_line[sec], []).extend(new_lines)
+        else:
+            appended.extend(["", f"[{sec}]"] + new_lines)
+
+    if not added:
+        return 0
+    out = []
+    for i, line in enumerate(lines):
+        out.append(line)
+        out.extend(inserts.get(i, []))
+    out.extend(appended)
+    write_text(target_path, "\n".join(out) + "\n", bom)
+    log(f"  |   |  📊 {Path(target_path).name}: {added} key(s) added from the newer version "
+        f"({translated} translated), original 1.27 text kept")
+    return added
+
+
+def merge_config_keep_fonts(template_path, target_path, log=print):
+    """Configuration files such as ui/war3skins.txt: the newer version is used
+    (e.g. TeamColors=28 for 24 players instead of 16), only the font entries
+    of the 1.27 language are kept (they cover that language's alphabet)."""
+    tpl_text, _ = read_text(template_path)
+    tgt_text, bom = read_text(target_path)
+    localized, sec = {}, ""
+    for line in tgt_text.splitlines():
+        m = _SECTION_RE.match(line)
+        if m:
+            sec = m.group(1)
+            continue
+        m = INI_KEY_RE.match(line)
+        if m:
+            localized[(sec.lower(), m.group(2))] = m.group(4)
+    out, kept, sec = [], 0, ""
+    for line in tpl_text.splitlines():
+        m = _SECTION_RE.match(line)
+        if m:
+            sec = m.group(1)
+        else:
+            m = INI_KEY_RE.match(line)
+            if m and "font" in m.group(2).lower():
+                loc = localized.get((sec.lower(), m.group(2)))
+                if loc is not None and loc != m.group(4):
+                    line = f"{m.group(1)}{m.group(2)}{m.group(3)}{loc}"
+                    kept += 1
+        out.append(line)
+    write_text(target_path, "\n".join(out) + "\n", bom)
+    log(f"  |   |  📊 {Path(target_path).name}: newer configuration used, {kept} 1.27 font setting(s) kept")

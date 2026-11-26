@@ -7,7 +7,8 @@ from zipfile import ZipFile
 
 from __Misc_Tools.translation.translator import StringTranslator
 from __Misc_Tools.translation.string_merge import (
-    merge_ini_strings, merge_fdf_strings, convert_campaign_strings, prefer_localized_over_english)
+    merge_ini_strings, merge_fdf_strings, convert_campaign_strings, prefer_localized_over_english,
+    complete_ini_sections, read_text, merge_config_keep_fonts)
 
 
 def build_patch_for_region(progress_callback, mpq_to_casc_path, workspace_dir=None,
@@ -85,7 +86,7 @@ def build_patch_for_region(progress_callback, mpq_to_casc_path, workspace_dir=No
                                       allow_online=allow_online_translation, fallback=missing_fallback)
         update_text_files(region_patch_folder, TEMPLATES, translator,
                           casc_region_folder if has_casc else None, progress_callback,
-                          source_folder=MPQ_DATA_TO_CASC)
+                          source_folder=MPQ_DATA_TO_CASC, homemade_folder=homemade_folder)
         progress_callback(f"  | 🌍 Missing strings: {translator.summary()}")
 
         # Step 7: remove the temporary converted folder
@@ -113,7 +114,8 @@ def find_file_ci(folder: Path, *parts):
     return current
 
 
-def update_text_files(patch_folder, templates_dir, translator, casc_folder, log, source_folder=None):
+def update_text_files(patch_folder, templates_dir, translator, casc_folder, log, source_folder=None,
+                      homemade_folder=None):
     ui = find_file_ci(patch_folder, "ui")
     if ui is None:
         log(f"  | ⚠️ UI folder not found in {patch_folder.name}")
@@ -154,6 +156,8 @@ def update_text_files(patch_folder, templates_dir, translator, casc_folder, log,
         except Exception as e:
             log(f"  | ⛔ Failed to update {target.name}: {e}")
 
+    complete_other_text_files(patch_folder, templates_dir, translator, casc_folder, log, homemade_folder)
+
     # Campaign menus: convert only the files that come from 1.27, i.e. those
     # the target/CASC data does not provide itself (checked file by file)
     for template_rel, name in (("campaignstrings_translator/template_1.31.txt", "CampaignStrings.txt"),
@@ -169,6 +173,55 @@ def update_text_files(patch_folder, templates_dir, translator, casc_folder, log,
             convert_campaign_strings(target, templates_dir / template_rel, log)
         except Exception as e:
             log(f"  | ⛔ Failed to convert {name}: {e}")
+
+
+# handled separately (dedicated merges / campaign conversion)
+# configuration (not text): newer version, 1.27 fonts kept
+_CONFIG_FILES = {"ui/war3skins.txt"}
+
+_SPECIAL_TEXT_FILES = {"ui/worldeditstrings.txt", "ui/worldeditgamestrings.txt",
+                       "ui/framedef/globalstrings.fdf", "ui/campaignstrings.txt",
+                       "ui/campaignstrings_exp.txt"}
+
+
+def complete_other_text_files(patch_folder, templates_dir, translator, casc_folder, log, homemade_folder=None):
+    """Every other ui/ and units/ text file that came from 1.27 gets the keys the
+    newer version added (otherwise new buttons/tooltips/messages are empty).
+    References: <templates>/locale_templates/<path> (the target's English
+    files, or the bundled 1.31 ones)."""
+    ref_root = Path(templates_dir) / "locale_templates"
+    if not ref_root.is_dir():
+        log("  | ⚠️ No locale reference files: other ui/units texts not completed")
+        return
+    total = 0
+    for ref in sorted(ref_root.rglob("*")):
+        if not ref.is_file():
+            continue
+        rel = str(ref.relative_to(ref_root)).replace("\\", "/").lower()
+        if rel in _SPECIAL_TEXT_FILES:
+            continue
+        parts = rel.split("/")
+        if casc_folder is not None and find_file_ci(casc_folder, *parts) is not None:
+            continue  # original file of the target: never modified
+        if homemade_folder is not None and find_file_ci(homemade_folder, *parts) is not None:
+            continue  # hand-made file (_HomeMade_Data): final, never modified
+        target = find_file_ci(patch_folder, *parts)
+        if target is None:
+            continue
+        try:
+            text = read_text(ref)[0]
+            if rel in _CONFIG_FILES:
+                merge_config_keep_fonts(ref, target, log)
+                total += 1
+            elif "StringList" in text and re.search(r'^\s*[A-Za-z0-9_]+\s+"', text, re.M):
+                before = target.read_bytes()
+                merge_fdf_strings(ref, target, translator, log)
+                total += before != target.read_bytes()
+            elif re.search(r"^\s*\[[^\]]+\]\s*$", text, re.M):
+                total += 1 if complete_ini_sections(ref, target, translator, log) else 0
+        except Exception as e:
+            log(f"  | ⛔ Failed to complete {rel}: {e}")
+    log(f"  | 🧩 Other ui/units text files completed with the newer keys: {total}")
 
 
 def extract_region_code(MPQ_DATA_TO_CASC, progress_callback):

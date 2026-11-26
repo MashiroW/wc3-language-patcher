@@ -1,0 +1,170 @@
+|CFFFFFFFFCHAT HELP|CFFF0C810
+
+|CFFDFDFDFClans|CFFF0C810
+Battle.net now provides support for players of Warcraft III to form their own clans. Clans are groups of 10 to 100 players who wish to affiliate together led by a Chieftain. Battle.net provides clans with their own private channels, as well as a ladder to rate the overall play of the clan. Every clan also has a unique clan abbreviation that is displayed after the names of the members.  For more information on clans, please go to http://www.battle.net.
+
+|CFFDFDFDFLeft clicking on a player icon selects that player.
+Right clicking on a player icon will bring up a drop down menu, which includes a number of different options:|CFFF0C810
+
+|CFFBFBFBFWHISPER|CFFF0C810 sends a private message to that player.
+
+|CFFBFBFBFWHOIS|CFFF0C810 searches for that player telling you their current location. 
+
+|CFFBFBFBFSQUELCH|CFFF0C810 ignores messages from that user.
+
+|CFFBFBFBFPROFILE...|CFFF0C810 brings up the Warcraft III profile for that player. Double clicking on Warcraft III players in the channel list brings up their profile.
+
+|CFFBFBFBFADD TO FRIENDS|CFFF0C810 adds that player to your friends list.
+
+
+
+|CFFDFDFDFThe main buttons have the following functions:|CFFF0C810
+
+|CFFBFBFBFPLAY GAME|CFFF0C810 is the anonymous matchmaking feature that matches Warcraft III players of similar skill level together for a game. You can specify what game type you want to play, how many players, and which maps you prefer. Battle.net matches players of comparable level against each other. See the Warcraft III manual for more details.
+
+|CFFBFBFBFARRANGED TEAM|CFFF0C810 allows you to play with teammates of your choosing against anonymous opponents. You choose your allies before launching a game. Battle.net matches teams of comparable level against each other.
+
+|CFFBFBFBFCUSTOM GAME|CFFF0C810 is the selection where you can choose your opponents. When you select a custom game, at the left of your screen you will see a list of available games. Clicking on a game will reveal information about the map and game host.
+
+|CFFBFBFBFLADDER INFO|CFFF0C810 allows you to view your official ranking in the Warcraft III Ladders on the Battle.net website. Players ranking change according to player successes or failures in anonymous matchmaking games. Ladder statistics are updated daily. Icons by your name in chat rooms will change as your ladder status changes.
+
+|CFFBFBFBFCHANNEL|CFFF0C810 allows you join an existing chat channel or gives you the opportunity to create a channel of your own. To enter an established public channel, select one from the channel list and click the Join Channel button, or double click the chat channel name. If you wish to create your own channel, enter the name of the channel that you wish to create in the Channel Name field.
+
+|CFFBFBFBFEXIT BATTLE.NET|CFFF0C810 closes the Battle.net chat interface and returns you to the main Selection screen. You are no longer connected to Battle.net.
+
+|CFFBFBFBFCHANNEL TAB|CFFF0C810 is a listing of all players in the same chat channel. 
+
+|CFFBFBFBFFRIENDS TAB|CFFF0C810 is a listing of those particular players you have designated as a friend. You can keep track of your friends, noting when they log onto Battle.net as well as alerting you when they enter chat channels or create games.
+
+
+
+ |CFFDFDFDFRight clicking on the selected friend will open a drop down menu with many options:|CFFF0C810
+
+|CFFBFBFBFWHISPER|CFFF0C810 sends a private message to that friend.
+
+|CFFBFBFBFWHOIS|CFFF0C810 searches for that friend, informing you about their current location.
+
+|CFFBFBFBFPROMOTE FRIEND|CFFF0C810 moves that friend up on your friends list.
+
+|CFFBFBFBFDEMOTE FRIEND|CFFF0C810 moves that friend down on your friends list.
+
+|CFFBFBFBFREMOVE FROM FRIENDS|CFFF0C810 eliminates that player from your friends list.
+
+For more information on how to manage your Friends list, direct your web browser to |CFFBFBFBFhttp://www.battle.net/info/friends.shtml|CFFF0C810
+
+
+
+|CFFFFFFFFCHAT WINDOW|CFFF0C810
+
+|CFFFFFF00Yellow Text|CFFF0C810 indicates the name of the player speaking.
+
+|CFFFFFFFFWhite Text|CFFF0C810 indicates what you or others have said out loud to the entire chat channel.
+
+|CFF3F3F3FGrey Text|CFFF0C810 indicates you or others have performed that action in the chat channel
+
+|CFF00FF00Green Text|CFFF0C810 indicates what you have <whispered> to a specific person, or any message that has been <whispered> to you. 
+
+|CFF0000FFBlue Text|CFFF0C810 special messages sent directly from Battle.net.
+
+|CFFFF0000Red Text|CFFF0C810 represents warning or error messages sent directly from Battle.net.
+
+
+
+|CFFFFFFFFCHAT COMMANDS|CFFF0C810
+
+|CFFBFBFBFALT+N|CFFF0C810 (Macintosh |CFFBFBFBFALT+M|CFFF0C810)
+Pastes the selected player name in your text box.
+
+|CFFBFBFBFALT+R|CFFF0C810
+Replies to the last player who whispered to you.
+
+|CFFBFBFBFALT+W|CFFF0C810
+Whispers to the selected player.
+
+|CFFBFBFBFCTRL+C, CTRL+X, CTRL+V|CFFF0C810
+Use these commands to copy, cut, and paste highlighted text.
+
+|CFFBFBFBFCRTL+M|CFFF0C810
+Toggle music off/on.
+
+
+
+|CFFFFFFFFBATTLE.NET COMMANDS|CFFF0C810
+|CFFDFDFDFYou can access any of these commands by entering them in the text box where you normally type messages:|CFFF0C810
+
+|CFFBFBFBF/whisper USERNAME MESSAGE, /w USERNAME MESSAGE
+/msg USERNAME MESSAGE, /m USERNAME MESSAGE|CFFF0C810
+Sends a private message to another user on Battle.net
+
+|CFFBFBFBF/me MESSAGE, /emote MESSAGE|CFFF0C810
+Allows you to perform an action in the chat room. 
+
+|CFFBFBFBF/squelch USERNAME, /ignore USERNAME|CFFF0C810
+Allows you to ignore messages from the indicated user. 
+
+|CFFBFBFBF/unsquelch USERNAME, /unignore USERNAME|CFFF0C810
+Allows you to again receive messages from this user. 
+
+|CFFBFBFBF/away REASON|CFFF0C810
+Lets people who send you messages know that you are away from your keyboard and cannot respond. You may provide a reason for your absence, by typing it after the /away command. To turn off this auto message when you return to your keyboard, enter /away by itself.
+
+|CFFBFBFBF/dnd REASON|CFFF0C810
+Lets people who send you messages know that you do not wish to be disturbed. You may provide a reason for your absence, by typing it after the /dnd command. To turn off this auto message, enter /dnd by itself.
+
+|CFFBFBFBF/channel CHANNELNAME, /join CHANNELNAME|CFFF0C810
+Takes you to the Battle.net channel of your choice. If you wanted to enter the Technical Support Channel, you would simply type /channel technical support. If you attempt to join a channel that does not exist, you will automatically create that channel.
+
+|CFFBFBFBF/who CHANNELNAME|CFFF0C810
+Provides you with a list of the Battle.net user names of the players that are currently in the requested Battle.net channel.
+
+|CFFBFBFBF/whois USERNAME, /where USERNAME, /whereis USERNAME|CFFF0C810
+Searches for another player in all Battle.net Public Chat channels and all Blizzard games, telling you their username and current location. 
+
+|CFFBFBFBF/whoami|CFFF0C810
+Provides you with your current location on Battle.net. 
+
+|CFFBFBFBF/help, /?|CFFF0C810
+Accesses this general Battle.net help text. 
+
+|CFFBFBFBF/time|CFFF0C810
+Provides you with the current Battle.net time and your current local time.
+
+|CFFBFBFBF/users|CFFF0C810
+Provides the number of users, games, and channels that are currently active across of Battle.net.
+
+|CFFBFBFBF/stats [USERNAME] [PROGRAMID]|CFFF0C810
+Provides you with the ladder statistics for Blizzard Entertainment games supported over Battle.net. PROGRAMID for each game is STAR Starcraft, SEXP Starcraft Broodwar, W2BN Warcraft II: Battle.net Edition, WAR3, Warcraft III, W3XP, Warcraft III Frozen Throne.  If PROGRAMID is omitted then it defaults to the your program.  If USERNAME is omitted then it defaults to your username.
+
+|CFFBFBFBF/profile USERNAME|CFFF0C810
+Allows you to view the profile of other Warcraft III players. Right-clicking on your own player icon allows you to edit your own profile.
+
+
+
+|CFFFFFFFFFRIENDS COMMANDS|CFFF0C810
+
+|CFFBFBFBF/friends COMMAND [OPTIONS], /f COMMAND [OPTIONS]|CFFF0C810
+The available COMMANDs are list, add, remove, msg, promote and demote.
+
+|CFFBFBFBF/friends list, /friends l|CFFF0C810
+Lists all of your friends and describes what they're up to.
+
+|CFFBFBFBF/friends add USERNAME, /friends a USERNAME|CFFF0C810
+Adds USERNAME to your friends list.
+
+|CFFBFBFBF/friends remove USERNAME, /friends r USERNAME|CFFF0C810
+Removes USERNAME from your friends list.
+
+|CFFBFBFBF/friends msg MESSAGE, /friends m MESSAGE|CFFF0C810
+Sends MESSAGE to everyone on your friends list.
+
+|CFFBFBFBF/friends promote USERNAME [POSITION], /friends p USERNAME [POSITION]|CFFF0C810
+Promotes USERNAME up one position in your friends list.  If POSITION is specified then it promotes USERNAME to that position from the top of your friends list.
+
+|CFFBFBFBF/friends demote USERNAME [POSITION], /friends d USERNAME [POSITION]|CFFF0C810
+Demotes USERNAME down one position in your friends list.  If POSITION is specified then it demotes USERNAME to that position from the bottom of your friends list.
+
+For more information on how to manage your Friends list, direct your web browser to |CFFBFBFBFhttp://www.battle.net/info/friends.shtml|CFFF0C810
+
+
+
+If you need further help, please go to the |CFFBFBFBFTECHNICAL SUPPORT|CFFF0C810 Channel on Lordaeron (US West) Battle.net, consult the Warcraft III manual or go to the Blizzard technical support page at |CFFBFBFBFhttp://www.blizzard.com/support.|CFFF0C810

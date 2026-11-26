@@ -72,6 +72,21 @@ def prepare_target(game_dir, lang, casc_folder, work_dir, bundled_templates, bun
                 shutil.rmtree(casc_folder)
             prefix, entries = _locale_entries(storage, actual)
             present = [(n, c) for n, c in entries if storage.is_present(c)]
+            # A text file of this language identical to the English one is just English
+            # (typical when the language is not installed: only the files shared with
+            # enUS are present). Those are not kept as "originals": the localized 1.27
+            # text, completed with the newer keys, is preferred.
+            if actual.lower() != "enus":
+                en_pref = LOCALE_PREFIX.format("enUS").lower()
+                en_ckeys = {k.lower()[len(en_pref):]: c for k, c in root.items() if k.lower().startswith(en_pref)}
+                english_texts = [(n, c) for n, c in present
+                                 if n.lower().endswith((".txt", ".fdf"))
+                                 and en_ckeys.get(n.lower()[len(prefix):]) == c]
+                if english_texts:
+                    skip = set(n for n, _ in english_texts)
+                    present = [(n, c) for n, c in present if n not in skip]
+                    log(f"  |   ℹ️ {len(english_texts)} {lang} text file(s) of the target are identical to English: "
+                        f"the 1.27 localized versions are used instead")
             if entries and is_reforged_layout(storage, actual):
                 log("  |   ⚠️ Reforged 2.0+ target: voices are .ogg there; 1.27 voices are added as .mp3/.wav")
             for i, (name, ckey) in enumerate(present, 1):
@@ -103,6 +118,20 @@ def prepare_target(game_dir, lang, casc_folder, work_dir, bundled_templates, bun
             if ckey is not None and storage.is_present(ckey):
                 (templates_dir / rel).write_bytes(storage.read_ckey(ckey))
                 from_target.append(name.split("/")[-1])
+        # every other English ui/ and units/ text file of this version (to complete
+        # the 1.27 files with the keys added since)
+        refs = 0
+        for k, c in root.items():
+            if not k.lower().startswith(en_prefix.lower()):
+                continue
+            rel = k[len(en_prefix):].replace(":", "/").lower()
+            if rel.endswith((".txt", ".fdf")) and rel.startswith(("ui/", "units/")) and storage.is_present(c):
+                dest = templates_dir / "locale_templates" / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(storage.read_ckey(c))
+                refs += 1
+        if refs:
+            from_target.append(f"{refs} ui/units reference files")
         if from_target:
             log(f"  |   ✅ English reference texts read from the target: {', '.join(from_target)}")
         if len(from_target) < len(TEMPLATE_FILES):
