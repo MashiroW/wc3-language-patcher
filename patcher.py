@@ -417,8 +417,7 @@ class CustomMainWindow(QMainWindow):
         # Auto-patching: put the result straight into the target game folder
         auto_group = QGroupBox("4 · Auto-patching")
         auto_layout = QVBoxLayout()
-        self.autopatch_checkbox = QCheckBox(
-            "Copy the patches and LANGUAGE_CHANGER.bat into the target game folder (recommended)")
+        self.autopatch_checkbox = QCheckBox("Copy the patches into the game folder (recommended)")
         self.autopatch_checkbox.setToolTip(
             "On: after the build, every <lang>_patch.zip of the output folder and LANGUAGE_CHANGER.bat\n"
             "are copied to the root of the target version (section 1). You only have to run the .bat there.\n"
@@ -861,8 +860,9 @@ class CustomMainWindow(QMainWindow):
             casc_btn.clicked.connect(lambda _, path=casc_path: self.show_in_explorer(path))
             self.lang_table.setCellWidget(i, 3, casc_btn)
 
-            del_btn = QPushButton()
-            del_btn.setIcon(self.style().standardIcon(QStyle.SP_TrashIcon))
+            del_btn = QPushButton("✕")
+            del_btn.setFixedWidth(30)
+            del_btn.setStyleSheet("color: #d32f2f; font-weight: bold; font-size: 14px;")
             del_btn.setToolTip(f"Remove {lang} from the list")
             del_btn.clicked.connect(lambda _, row=i: self.remove_language(row))
             self.lang_table.setCellWidget(i, 4, del_btn)
