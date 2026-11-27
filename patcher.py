@@ -316,17 +316,14 @@ class CustomMainWindow(QMainWindow):
         lang_layout.addWidget(self.lang_combo, 1)  # Stretch factor 1
         self.add_button = QPushButton("+")
         self.add_button.setFixedSize(25, 25)
-        self.remove_button = QPushButton("-")
-        self.remove_button.setFixedSize(25, 25)
         lang_layout.addWidget(self.add_button)
-        lang_layout.addWidget(self.remove_button)
         lang_group.setLayout(lang_layout)
         right_layout.addWidget(lang_group)
 
         # Language Table
         self.lang_table = QTableWidget()
-        self.lang_table.setColumnCount(4)
-        self.lang_table.setHorizontalHeaderLabels(["Language", "Skip", "Source (MPQ)", "Target (CASC)"])
+        self.lang_table.setColumnCount(5)
+        self.lang_table.setHorizontalHeaderLabels(["Language", "Skip", "Source (MPQ)", "Target (CASC)", ""])
         self.lang_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.lang_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.lang_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
@@ -383,6 +380,7 @@ class CustomMainWindow(QMainWindow):
         # Where the patch zips end up (merged/ next to the exe)
         self.output_button = QPushButton("Open output folder (merged)")
         self.output_button.setToolTip("Opens the folder containing the built <lang>_patch.zip files")
+        self.output_button.setIcon(self.style().standardIcon(QStyle.SP_DirOpenIcon))
         self.output_button.clicked.connect(self.open_output_folder)
         right_layout.addWidget(self.output_button)
 
@@ -426,7 +424,6 @@ class CustomMainWindow(QMainWindow):
         
         # Connect signals
         self.add_button.clicked.connect(self.add_language)
-        self.remove_button.clicked.connect(self.remove_language)
         self.patch_button.clicked.connect(self.patch_languages)
         self.online_checkbox.setChecked(self.settings.value("online_translation", True, type=bool))
         if self.settings.value("missing_fallback", "english", type=str) == "empty":
@@ -691,9 +688,8 @@ class CustomMainWindow(QMainWindow):
         self.update_lang_table()
         return True
 
-    def remove_language(self):
-        selected_row = self.lang_table.currentRow()
-        if selected_row >= 0:
+    def remove_language(self, selected_row):
+        if 0 <= selected_row < len(self.selected_languages):
             lang, _, rel_mpq_path, rel_casc_path = self.selected_languages[selected_row]
             mpq_path = os.path.join(self.base_path, rel_mpq_path)
             casc_path = os.path.join(self.base_path, rel_casc_path)
@@ -793,6 +789,12 @@ class CustomMainWindow(QMainWindow):
                 casc_btn.setStyleSheet("color: gray;")
             casc_btn.clicked.connect(lambda _, path=casc_path: self.show_in_explorer(path))
             self.lang_table.setCellWidget(i, 3, casc_btn)
+
+            del_btn = QPushButton()
+            del_btn.setIcon(self.style().standardIcon(QStyle.SP_TrashIcon))
+            del_btn.setToolTip(f"Remove {lang} from the list")
+            del_btn.clicked.connect(lambda _, row=i: self.remove_language(row))
+            self.lang_table.setCellWidget(i, 4, del_btn)
         
         self.lang_table.resizeColumnsToContents()
         self.lang_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
@@ -860,7 +862,6 @@ class CustomMainWindow(QMainWindow):
         self.target_browse.setEnabled(enabled)
         self.target_clear.setEnabled(enabled)
         self.add_button.setEnabled(enabled)
-        self.remove_button.setEnabled(enabled)
         self.lang_table.setEnabled(enabled)
 
         # Update the BUILD PATCH button's style
