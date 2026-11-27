@@ -184,3 +184,58 @@ def prepare_target(game_dir, lang, casc_folder, work_dir, bundled_templates, bun
                 "structure_file": structure_file, "locale_files": locale_files}
     finally:
         storage.close()
+
+
+ENGLISH_BASE = "enus_patch.zip"
+_MAPS_PREFIX = "war3.w3mod:maps/"
+
+
+def build_english_base(game_dir, merged_dir, log=print):
+    """Write merged/enus_patch.zip: the target's own maps, untouched.
+
+    LANGUAGE_CHANGER.bat always extracts it first (it resets the maps folder),
+    then the chosen language over it, so it is needed whatever the language.
+    Nothing is translated: these are the files of the target version itself.
+    Returns True if the archive is there (already up to date or just written)."""
+    from zipfile import ZipFile, BadZipFile
+
+    zip_path = Path(merged_dir) / ENGLISH_BASE
+    storage = CASCStorage(game_dir)
+    try:
+        version = storage.version.encode("utf-8")
+        try:
+            with ZipFile(zip_path) as existing:
+                if existing.comment == version:
+                    log(f"  | 🗺️ {ENGLISH_BASE} already built for this target ({storage.version})")
+                    return True
+        except (OSError, BadZipFile):
+            pass
+        root = storage.root_entries()
+        maps = sorted((k, c) for k, c in root.items()
+                      if k.lower().startswith(_MAPS_PREFIX) and k.count(":") == 1)
+        if not maps:
+            log(f"  | ⚠️ {ENGLISH_BASE} not created: no maps found in the target")
+            return False
+        Path(merged_dir).mkdir(parents=True, exist_ok=True)
+        tmp = zip_path.with_suffix(".zip.tmp")
+        written, skipped = 0, 0
+        with ZipFile(tmp, "w") as zipf:
+            zipf.comment = version
+            for name, ckey in maps:
+                try:
+                    data = storage.read_ckey(ckey)
+                except Exception:
+                    skipped += 1    # not installed or incomplete on disk
+                    continue
+                zipf.writestr(name.split(":", 1)[1].lower(), data)
+                written += 1
+        if not written:
+            tmp.unlink()
+            log(f"  | ⚠️ {ENGLISH_BASE} not created: the target's maps are not installed locally")
+            return False
+        tmp.replace(zip_path)
+        log(f"  | 🗺️ {ENGLISH_BASE} created from the target: {written} maps"
+            + (f" ({skipped} not readable, skipped)" if skipped else ""))
+        return True
+    finally:
+        storage.close()

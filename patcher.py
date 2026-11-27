@@ -56,15 +56,32 @@ def workspace_dir():
     return fallback
 
 
-# Each data folder gets a placeholder.txt saying what goes inside
+# MPQ_Data and CASC_Data get a placeholder.txt saying what goes inside
 PLACEHOLDERS = {
     "MPQ_Data": "Optional: 1.27 archives extracted by hand (e.g. frFR-MPQ/war3.mpq/...).\n"
                 "Normally not needed: use \"Open MPQ\" to pick your 1.27 install folder.\n",
     "CASC_Data": "Files of the target version (e.g. frfr.w3mod/...), extracted automatically\n"
                  "from the selected target. They override the 1.27 files.\n",
-    "merged": "Built patches (<lang>_patch.zip). Copy them with LANGUAGE_CHANGER.bat\n"
-              "into the Warcraft III folder and run the .bat.\n",
 }
+
+# merged/README.txt: how to install the built patches
+MERGED_README ="""Built patches end up in this folder.
+
+ALWAYS take enus_patch.zip, whatever language you install.
+LANGUAGE_CHANGER.bat extracts it first (English base), then your language
+over it. Without it the language changer stops.
+
+To install a language:
+1. Copy these into the Warcraft III folder
+   (1.30 / 1.31: next to "Warcraft III.exe" - Reforged: the _retail_ folder):
+     enus_patch.zip         English base, always required
+     <lang>_patch.zip       your language, e.g. frfr_patch.zip
+     LANGUAGE_CHANGER.bat
+2. Run LANGUAGE_CHANGER.bat and pick your language.
+
+enus_patch.zip is made from the target version at every build
+(section "1 - Target Version" must be set).
+"""
 
 
 def create_data_folders(base):
@@ -76,9 +93,13 @@ def create_data_folders(base):
                 note.write_text(text, encoding="utf-8")
         except OSError:
             pass
-    # the language switcher goes next to the built patches
-    changer = Path(base) / "merged" / "LANGUAGE_CHANGER.bat"
+    # next to the built patches: how to install them, and the language switcher
+    merged = Path(base) / "merged"
     try:
+        merged.mkdir(parents=True, exist_ok=True)
+        (merged / "placeholder.txt").unlink(missing_ok=True)   # replaced by README.txt
+        (merged / "README.txt").write_text(MERGED_README, encoding="utf-8")
+        changer = merged / "LANGUAGE_CHANGER.bat"
         if not changer.exists():
             shutil.copy2(resource_path("__Misc_Tools", "LANGUAGE_CHANGER.bat"), changer)
     except OSError:
@@ -128,7 +149,8 @@ from __Misc_Tools.patches_maker.patches_maker import build_patch_for_region
 from __Misc_Tools.mpq_to_casc_converter.mpq_to_casc_converter import convert_mpq_to_casc
 from __Misc_Tools.mpq_reader.install_extractor import extract_install, find_archives, ARCHIVES
 from __Misc_Tools.casc_reader.casc import extract_locale
-from __Misc_Tools.casc_reader.target import prepare_target, inspect_target, describe_locales
+from __Misc_Tools.casc_reader.target import (prepare_target, inspect_target, describe_locales,
+                                             build_english_base, ENGLISH_BASE)
 from __Misc_Tools.game_version import mpq_source_version
 
 
@@ -146,8 +168,15 @@ def run_region(mpq_path, lang, log, target_dir=None, allow_online=False, source_
             workspace_dir() / "_work" / lang,
             resource_path("__Misc_Tools"), structure, log=log)
         structure, templates = prep["structure_file"], prep["templates_dir"]
+        # English base, needed by LANGUAGE_CHANGER.bat whatever the language
+        if lang.lower() != "enus":
+            try:
+                build_english_base(target_dir, workspace_dir() / "merged", log=log)
+            except Exception as e:
+                log(f"  | ⚠️ {ENGLISH_BASE} not created: {e}")
     else:
         log("  | ℹ️ No target CASC version selected: using CASC_Data and the bundled 1.31 references")
+        log(f"  | ⚠️ {ENGLISH_BASE} is not created without a target: LANGUAGE_CHANGER.bat needs it")
     result = convert_mpq_to_casc(region_folder_path=mpq_path, progress_callback=log,
                                  structure_file=structure, install_dir=source_dir or None)
     if not result:

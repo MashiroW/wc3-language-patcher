@@ -27,7 +27,7 @@ https://github.com/user-attachments/assets/a23cb941-a369-4feb-b027-e22366cd5baf
 1. Download `WC3LanguagePatcher-windows.zip` from the [Releases page](https://github.com/MashiroW/wc3-language-patcher/releases/latest) and unzip it in a short path you can write to (e.g. `C:\WC3LanguagePatcher`).
 2. Run `WC3LanguagePatcher.exe`. Nothing else to install: no Python, no MPQ Editor, no API key.
 
-The folders `MPQ_Data`, `CASC_Data` and `merged` next to the executable each contain a `placeholder.txt` explaining what goes inside.
+The folders `MPQ_Data` and `CASC_Data` next to the executable each contain a `placeholder.txt` explaining what goes inside; `merged` contains a `README.txt` explaining how to install the built patches.
 
 ### Option B: run from source (Windows, Linux, macOS)
 1. Install Python 3.12 (64-bit).
@@ -93,8 +93,11 @@ Anything else can be placed in `_HomeMade_Data/[REGION]/`, e.g. fixed campaign m
 1. Click **BUILD PATCH**
 2. Click **Open output folder (merged)** (the full path is also shown in the console). It contains:
    * `[region]_patch.zip` (e.g. `frfr_patch.zip`)
-   * `LANGUAGE_CHANGER.bat`
-3. Copy them, with `enus_patch.zip` (the English base), into your Warcraft III installation:
+   * `enus_patch.zip`: the English base (the target's own maps), made from the target version at
+     every build. **Always take it, whatever the language:** `LANGUAGE_CHANGER.bat` extracts it
+     first, then your language over it
+   * `LANGUAGE_CHANGER.bat` and a `README.txt` repeating these steps
+3. Copy the two `.zip` files and the `.bat` into your Warcraft III installation:
    * **1.30 / 1.31:** the game root folder (next to `Warcraft III.exe`)
    * **Reforged (v1.32+):** `[WC3 Folder]/_retail_/`
 4. Run `LANGUAGE_CHANGER.bat` and pick your language. It extracts the patch, enables
