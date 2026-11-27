@@ -43,6 +43,23 @@ def mpq_install_version(folder) -> str:
     return ""
 
 
+VERSION_FILE = "version.txt"
+
+
+def mpq_source_version(folder) -> str:
+    """Version of a 1.27 source: an install folder (read from game.dll), or an
+    MPQ_Data/<lang>-MPQ folder (version.txt written when it was imported)."""
+    if not folder:
+        return ""
+    version = mpq_install_version(folder)
+    if version:
+        return version
+    try:
+        return (Path(folder) / VERSION_FILE).read_text(encoding="utf-8").strip().splitlines()[0][:16]
+    except (OSError, IndexError):
+        return ""
+
+
 def short_casc_version(version: str) -> str:
     """'1.31.1.12164' -> '1.31.1'."""
     parts = (version or "").strip().split(".")

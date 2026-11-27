@@ -54,4 +54,9 @@ def extract_install(install_dir, region_dir, log=print):
                                         extra_names=extra, progress=progress)
         results[name] = (ok, failed)
         log(f"  |   ✅ {name}: {ok} files" + (f", {len(failed)} failed" if failed else ""))
+    # remember the game version (shown next to "Open MPQ")
+    from __Misc_Tools.game_version import mpq_install_version, VERSION_FILE
+    version = mpq_install_version(install_dir)
+    if version:
+        (region_dir / VERSION_FILE).write_text(version + "\n", encoding="utf-8")
     return results

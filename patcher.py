@@ -63,8 +63,8 @@ from __Misc_Tools.patches_maker.patches_maker import build_patch_for_region
 from __Misc_Tools.mpq_to_casc_converter.mpq_to_casc_converter import convert_mpq_to_casc
 from __Misc_Tools.mpq_reader.install_extractor import extract_install, find_archives, ARCHIVES
 from __Misc_Tools.casc_reader.casc import CASCStorage, extract_locale, present_locales
-from __Misc_Tools.casc_reader.target import prepare_target, inspect_target, describe_locales, MARKER
-from __Misc_Tools.game_version import mpq_install_version, short_casc_version
+from __Misc_Tools.casc_reader.target import prepare_target, inspect_target, describe_locales
+from __Misc_Tools.game_version import mpq_source_version
 
 
 def run_region(mpq_path, lang, log, target_dir=None, allow_online=False, source_dir=None,
@@ -715,7 +715,15 @@ class CustomMainWindow(QMainWindow):
             else:
                 tip = "No source yet: select the Warcraft III install of this language (contains war3.mpq)"
             # game version next to the button text, when it can be read
-            mpq_version = mpq_install_version(self.sources.get(lang)) if self.source_ok(lang) else ""
+            # (install: game.dll; MPQ_Data: version.txt written at import)
+            if self.source_ok(lang):
+                mpq_version = mpq_source_version(self.sources[lang]) or "?"
+            elif self.extracted_folder(lang) is not None:
+                mpq_version = mpq_source_version(self.extracted_folder(lang)) or "?"
+                if mpq_version == "?":
+                    tip += "\nVersion unknown: add a version.txt (e.g. 1.27b) in this folder"
+            else:
+                mpq_version = ""
             label = f"Open MPQ ({mpq_version})" if mpq_version else "Open MPQ"
             src_btn = QPushButton(label)
             src_btn.setToolTip(tip)
@@ -724,8 +732,7 @@ class CustomMainWindow(QMainWindow):
             src_btn.clicked.connect(lambda _, l=lang: self.choose_source(l))
             self.lang_table.setCellWidget(i, 2, src_btn)
             
-            casc_version = self.casc_version(casc_path)
-            casc_btn = QPushButton(f"Open CASC ({casc_version})" if casc_version else "Open CASC")
+            casc_btn = QPushButton("Open CASC")  # its version is shown in Target Version
             casc_btn.setToolTip(casc_path)
             casc_btn.setEnabled(casc_exists)
             if not casc_exists:
@@ -736,17 +743,6 @@ class CustomMainWindow(QMainWindow):
         self.lang_table.resizeColumnsToContents()
         self.lang_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.lang_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
-
-    def casc_version(self, casc_path):
-        """Version of the CASC data of a row: the version it was extracted from,
-        else the selected target's version."""
-        marker = os.path.join(casc_path, MARKER)
-        try:
-            with open(marker, encoding="utf-8") as f:
-                version = f.read().strip()
-        except OSError:
-            version = getattr(self, "target_version", "")
-        return short_casc_version(version)
 
     def toggle_ignore(self, row, state):
         lang, _, rel_mpq_path, rel_casc_path = self.selected_languages[row]
