@@ -80,7 +80,8 @@ To install a language:
 2. Run LANGUAGE_CHANGER.bat and pick your language.
 
 With "4 - Auto-patching" on (the default), step 1 is done for you after each
-build: the patches and LANGUAGE_CHANGER.bat are copied to the target game folder.
+build: the patches are moved (not copied) to the target game folder, with
+LANGUAGE_CHANGER.bat, so this folder stays empty of patches.
 
 enus_patch.zip is made from the target version at every build
 (section "1 - Target Version" must be set).
@@ -158,9 +159,11 @@ from __Misc_Tools.game_version import mpq_source_version
 
 
 def run_region(mpq_path, lang, log, target_dir=None, allow_online=False, source_dir=None,
-               missing_fallback="english"):
+               missing_fallback="english", auto_patch=False):
     """Full pipeline for one language. Returns True on success.
 
+    auto_patch: the patches are moved to the game folder afterwards, so the
+                English base already there is reused instead of rebuilt.
     source_dir: 1.27 install folder (its .mpq archives are read directly);
                 without it, the extracted files in mpq_path are used."""
     structure = resource_path("__Misc_Tools", "mpq_to_casc_converter", "structure.txt")
@@ -174,7 +177,8 @@ def run_region(mpq_path, lang, log, target_dir=None, allow_online=False, source_
         # English base, needed by LANGUAGE_CHANGER.bat whatever the language
         if lang.lower() != "enus":
             try:
-                build_english_base(target_dir, workspace_dir() / "merged", log=log)
+                build_english_base(target_dir, workspace_dir() / "merged", log=log,
+                                   installed_dir=game_install_folder(target_dir) if auto_patch else None)
             except Exception as e:
                 log(f"  | ⚠️ {ENGLISH_BASE} not created: {e}")
     else:
@@ -204,9 +208,19 @@ def game_install_folder(target_dir):
     return retail if retail.is_dir() else Path(target_dir)
 
 
+def move_file(src, dst):
+    """Move src over dst. Instant on the same drive; across drives it is a copy
+    followed by the removal of the original."""
+    try:
+        os.replace(src, dst)
+    except OSError:
+        shutil.copy2(src, dst)
+        os.unlink(src)
+
+
 def install_patches(target_dir, log):
-    """Auto-patching: copy the built patches and LANGUAGE_CHANGER.bat from merged/
-    into the game folder. Returns True if everything was copied."""
+    """Auto-patching: move the built patches from merged/ into the game folder (no
+    second copy is kept) and copy LANGUAGE_CHANGER.bat there. Returns True if done."""
     merged = workspace_dir() / "merged"
     dest = game_install_folder(target_dir)
     # one archive per language: its most recent build (a rebuild gets a time stamp)
@@ -217,19 +231,20 @@ def install_patches(target_dir, log):
             latest[lang] = archive
     files = [(archive, f"{lang}_patch.zip") for lang, archive in sorted(latest.items())]
     changer = merged / "LANGUAGE_CHANGER.bat"
-    if changer.exists():
-        files.append((changer, changer.name))
     if not latest:
-        log("🚚 Auto-patching: nothing to copy, no patch in the output folder")
+        log("🚚 Auto-patching: nothing to move, no new patch in the merged folder")
         return False
-    log(f"🚚 Auto-patching: copying {len(files)} file(s) to {dest}")
+    log(f"🚚 Auto-patching: moving {len(files)} patch(es) to {dest}")
     try:
         for src, name in files:
             log(f"  | 📥 {name}")
-            shutil.copy2(src, dest / name)
+            move_file(src, dest / name)
+        if changer.exists():
+            log(f"  | 📥 {changer.name}")
+            shutil.copy2(changer, dest / changer.name)
     except OSError as e:
-        log(f"  | ⛔ Could not copy to the game folder: {e}")
-        log("  |   Close the game, or copy the files of the output folder yourself "
+        log(f"  | ⛔ Could not move to the game folder: {e}")
+        log("  |   Close the game, or move the files of the merged folder yourself "
             "(the game folder may need administrator rights).")
         return False
     log("✅ Game folder ready: run LANGUAGE_CHANGER.bat there and pick your language.")
@@ -266,8 +281,9 @@ class RegionProcessor(QThread):
     error = pyqtSignal(str)
 
     def __init__(self, mpq_path, lang, allow_online=False, target_dir=None, source_dir=None,
-                 missing_fallback="english"):
+                 missing_fallback="english", auto_patch=False):
         super().__init__()
+        self.auto_patch = auto_patch
         self.mpq_path = mpq_path
         self.lang = lang
         self.allow_online = allow_online
@@ -284,7 +300,8 @@ class RegionProcessor(QThread):
         try:
             run_region(self.mpq_path, self.lang, progress_callback,
                        target_dir=self.target_dir, allow_online=self.allow_online,
-                       source_dir=self.source_dir, missing_fallback=self.missing_fallback)
+                       source_dir=self.source_dir, missing_fallback=self.missing_fallback,
+                       auto_patch=self.auto_patch)
         except Exception as e:
             self.error.emit(f"  | ⛔ Unexpected error for {self.lang}: {e}")
             self.error.emit(traceback.format_exc())
@@ -417,11 +434,11 @@ class CustomMainWindow(QMainWindow):
         # Auto-patching: put the result straight into the target game folder
         auto_group = QGroupBox("4 · Auto-patching")
         auto_layout = QVBoxLayout()
-        self.autopatch_checkbox = QCheckBox("Copy the patches into the game folder (recommended)")
+        self.autopatch_checkbox = QCheckBox("Move the patches into the game folder (recommended)")
         self.autopatch_checkbox.setToolTip(
-            "On: after the build, every <lang>_patch.zip of the output folder and LANGUAGE_CHANGER.bat\n"
-            "are copied to the root of the target version (section 1). You only have to run the .bat there.\n"
-            "Off: the files stay in the output folder (merged) and you copy them yourself.")
+            "On: after the build, every <lang>_patch.zip is moved (not copied) to the root of the target\n"
+            "version (section 1), with LANGUAGE_CHANGER.bat. You only have to run the .bat there.\n"
+            "Off: the files stay in the merged folder and you copy them yourself.")
         auto_layout.addWidget(self.autopatch_checkbox)
         auto_group.setLayout(auto_layout)
         right_layout.addWidget(auto_group)
@@ -446,8 +463,7 @@ class CustomMainWindow(QMainWindow):
         right_layout.addWidget(self.patch_button)
 
         # Where the patch zips end up (merged/ next to the exe)
-        self.output_button = QPushButton("Open output folder (merged)")
-        self.output_button.setToolTip("Opens the folder containing the built <lang>_patch.zip files")
+        self.output_button = QPushButton("Open output folder")
         self.output_button.setIcon(self.style().standardIcon(QStyle.SP_DirOpenIcon))
         self.output_button.clicked.connect(self.open_output_folder)
         right_layout.addWidget(self.output_button)
@@ -496,6 +512,7 @@ class CustomMainWindow(QMainWindow):
         self.online_checkbox.setChecked(self.settings.value("online_translation", True, type=bool))
         self.autopatch_checkbox.setChecked(self.settings.value("auto_patching", True, type=bool))
         self.autopatch_checkbox.toggled.connect(lambda on: self.settings.setValue("auto_patching", on))
+        self.autopatch_checkbox.toggled.connect(lambda _: self.update_output_button())
         if self.settings.value("missing_fallback", "english", type=str) == "empty":
             self.fallback_empty.setChecked(True)
         self.online_checkbox.toggled.connect(self.save_translation_options)
@@ -965,7 +982,6 @@ class CustomMainWindow(QMainWindow):
     def process_next_language(self):
         if not self.languages_to_process:
             self.log_message("Patch completed for selected languages!")
-            self.log_message(f"📁 Output folder: {self.base_path / 'merged'}")
             if self.autopatch_checkbox.isChecked() and self.target_dir:
                 self.installer = PatchInstaller(self.target_dir)
                 self.installer.progress.connect(self.log_message)
@@ -974,6 +990,7 @@ class CustomMainWindow(QMainWindow):
                 return
             if self.autopatch_checkbox.isChecked():
                 self.log_message("ℹ️ Auto-patching skipped: no target version selected (section 1)")
+            self.log_message(f"📁 Output folder: {self.base_path / 'merged'}")
             self.finish_build()
             return
         
@@ -987,7 +1004,8 @@ class CustomMainWindow(QMainWindow):
         # Create and start worker
         self.worker = RegionProcessor(mpq_path, lang, allow_online=self.online_checkbox.isChecked(),
                                       target_dir=self.target_dir or None, source_dir=source,
-                                      missing_fallback="empty" if self.fallback_empty.isChecked() else "english")
+                                      missing_fallback="empty" if self.fallback_empty.isChecked() else "english",
+                                      auto_patch=self.autopatch_checkbox.isChecked())
         self.worker.progress.connect(self.log_message)
         self.worker.error.connect(self.log_message)
         self.worker.finished.connect(self.process_next_language)
@@ -1020,6 +1038,7 @@ class CustomMainWindow(QMainWindow):
         self.settings.setValue("target_casc", self.target_dir)
         if hasattr(self, "lang_table"):
             self.update_lang_table()  # the CASC version shown on each row may change
+        self.update_output_button()
         return True
 
     def browse_target(self):
@@ -1035,18 +1054,30 @@ class CustomMainWindow(QMainWindow):
             return False
         return self.set_target(folder)
 
-    def update_output_button(self):
+    def output_folder(self):
+        """Where the patches are: the game folder once auto-patching moved them
+        there, otherwise merged/ next to the program."""
         merged = self.base_path / "merged"
-        zips = sorted(merged.glob("*_patch*.zip")) if merged.exists() else []
+        target = getattr(self, "target_dir", "")
+        if target and self.autopatch_checkbox.isChecked():
+            game = game_install_folder(target)
+            if any(game.glob("*_patch*.zip")) or not any(merged.glob("*_patch*.zip")):
+                return game
+        return merged
+
+    def update_output_button(self):
+        folder = self.output_folder()
+        zips = sorted(folder.glob("*_patch*.zip")) if folder.exists() else []
         self.output_button.setEnabled(bool(zips))
         self.output_button.setText(
-            f"Open output folder (merged) - {len(zips)} patch(es)" if zips
-            else "Open output folder (merged) - build a patch first")
+            f"Open output folder - {len(zips)} patch(es)" if zips
+            else "Open output folder - build a patch first")
+        self.output_button.setToolTip(f"Opens the folder containing the <lang>_patch.zip files:\n{folder}")
 
     def open_output_folder(self):
-        merged = self.base_path / "merged"
-        if merged.exists():
-            self.show_in_explorer(str(merged))
+        folder = self.output_folder()
+        if folder.exists():
+            self.show_in_explorer(str(folder))
 
     def save_settings(self):
         serializable = [(lang, ignore, mpq, casc) for lang, ignore, mpq, casc in self.selected_languages]
@@ -1097,7 +1128,7 @@ def run_headless(args):
       --source     read the 1.27 .mpq archives directly (otherwise MPQ_Data/<lang>-MPQ)
       --no-online  no online translation for strings without a bundled translation
       --empty      with --no-online: leave those strings empty instead of English
-      --install    auto-patching: copy the patches and LANGUAGE_CHANGER.bat into the target
+      --install    auto-patching: move the patches into the target game folder
     Output goes to patcher.log in the workspace folder."""
     create_data_folders(workspace_dir())
     log_path = workspace_dir() / "patcher.log"
@@ -1124,7 +1155,8 @@ def run_headless(args):
                 online = "--no-online" not in args
                 ok = run_region(mpq_path, lang, log, target_dir=target, allow_online=online,
                                 source_dir=source,
-                                missing_fallback="empty" if ("--empty" in args and not online) else "english")
+                                missing_fallback="empty" if ("--empty" in args and not online) else "english",
+                                auto_patch="--install" in args)
                 if ok and target and "--install" in args:
                     ok = install_patches(target, log)
                 return 0 if ok else 1

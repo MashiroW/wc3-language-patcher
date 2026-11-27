@@ -91,14 +91,16 @@ Anything else can be placed in `_HomeMade_Data/[REGION]/`, e.g. fixed campaign m
 
 ### Step 5: Build & Apply Patch
 1. Click **BUILD PATCH**
-2. Click **Open output folder (merged)** (the full path is also shown in the console). It contains:
+2. Click **Open output folder**: it opens the folder holding the patches, which is the target game
+   folder when Auto-patching is on, and `merged` (next to the program) otherwise. You get:
    * `[region]_patch.zip` (e.g. `frfr_patch.zip`)
    * `enus_patch.zip`: the English base (the target's own maps), made from the target version at
      every build. **Always take it, whatever the language:** `LANGUAGE_CHANGER.bat` extracts it
      first, then your language over it
    * `LANGUAGE_CHANGER.bat` and a `README.txt` repeating these steps
-3. With **4 · Auto-patching** on (the default), the patcher copies the `.zip` files and the `.bat`
-   into the target game folder itself, and you can skip to the next step. Otherwise copy them into
+3. With **4 · Auto-patching** on (the default), the patcher moves the `.zip` files (no second copy
+   is kept in `merged`) and copies the `.bat` into the target game folder itself, and you can skip
+   to the next step. Otherwise copy them into
    your Warcraft III installation:
    * **1.30 / 1.31:** the game root folder (next to `Warcraft III.exe`)
    * **Reforged (v1.32+):** `[WC3 Folder]/_retail_/`

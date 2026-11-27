@@ -190,12 +190,14 @@ ENGLISH_BASE = "enus_patch.zip"
 _MAPS_PREFIX = "war3.w3mod:maps/"
 
 
-def build_english_base(game_dir, merged_dir, log=print):
+def build_english_base(game_dir, merged_dir, log=print, installed_dir=None):
     """Write merged/enus_patch.zip: the target's own maps, untouched.
 
     LANGUAGE_CHANGER.bat always extracts it first (it resets the maps folder),
     then the chosen language over it, so it is needed whatever the language.
     Nothing is translated: these are the files of the target version itself.
+    installed_dir: game folder the patches are moved to (auto-patching); an
+    up-to-date archive already there is not rebuilt.
     Returns True if the archive is there (already up to date or just written)."""
     from zipfile import ZipFile, BadZipFile
 
@@ -203,13 +205,14 @@ def build_english_base(game_dir, merged_dir, log=print):
     storage = CASCStorage(game_dir)
     try:
         version = storage.version.encode("utf-8")
-        try:
-            with ZipFile(zip_path) as existing:
-                if existing.comment == version:
-                    log(f"  | 🗺️ {ENGLISH_BASE} already built for this target ({storage.version})")
-                    return True
-        except (OSError, BadZipFile):
-            pass
+        for candidate in ([Path(installed_dir) / ENGLISH_BASE] if installed_dir else []) + [zip_path]:
+            try:
+                with ZipFile(candidate) as existing:
+                    if existing.comment == version:
+                        log(f"  | 🗺️ {ENGLISH_BASE} already built for this target ({storage.version})")
+                        return True
+            except (OSError, BadZipFile):
+                pass
         root = storage.root_entries()
         maps = sorted((k, c) for k, c in root.items()
                       if k.lower().startswith(_MAPS_PREFIX) and k.count(":") == 1)
