@@ -10,6 +10,11 @@ call .venv\Scripts\activate.bat || goto :error
 python -m pip install --upgrade pip || goto :error
 python -m pip install -r requirements-dev.txt || goto :error
 python tools\build_translation_cache.py check || goto :error
+REM 3D background: separate project, bundled into the exe only
+if not exist OpenGLWorldEditor.py (
+    echo Downloading OpenGLWorldEditor.py from github.com/MashiroW/openGL-WorldEditor ...
+    curl -fsSL -o OpenGLWorldEditor.py https://raw.githubusercontent.com/MashiroW/openGL-WorldEditor/main/OpenGLWorldEditor.py || goto :error
+)
 python -m PyInstaller --noconfirm wc3_language_patcher.spec || goto :error
 REM ship MPQ_Data, CASC_Data and merged with their placeholder.txt
 python -c "import app_paths; app_paths.ensure_workspace_folders(r'dist\WC3LanguagePatcher')" || goto :error

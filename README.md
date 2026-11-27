@@ -32,9 +32,12 @@ The folders `MPQ_Data`, `CASC_Data` and `merged` next to the executable each con
 ### Option B: run from source (Windows, Linux, macOS)
 1. Install Python 3.12 (64-bit).
 2. `pip install -r requirements.txt`
-3. `python patcher.py`
+3. Optional, for the 3D background: place [OpenGLWorldEditor.py](https://github.com/MashiroW/openGL-WorldEditor/blob/main/OpenGLWorldEditor.py)
+   (separate project) in the project root. Without it the patcher works the same, without the 3D scene.
+4. `python patcher.py`
 
-To build the executable yourself: run `build_exe.bat` (creates `dist/WC3LanguagePatcher-windows.zip`).
+To build the executable yourself: run `build_exe.bat` (downloads `OpenGLWorldEditor.py` if it is missing,
+bundles it into the executable and creates `dist/WC3LanguagePatcher-windows.zip`).
 
 ### Optional tools
 (⚠️ Your browser might warn you because this website is http)
@@ -107,7 +110,7 @@ Anything else can be placed in `_HomeMade_Data/[REGION]/`, e.g. fixed campaign m
 **Mal’Ganis won’t attack:** Use fixed `human06.w3m` from `_HomeMade_Data/`  
 **Cutscene audio missing:** check that the 1.27 install has its `Movies` folder (9 `.mpq` cinematics)  
 **Language not applied in game:** run `LANGUAGE_CHANGER.bat` again and check its *Checking the registry* lines  
-**No 3D background:** OpenGL is unavailable on this machine (or the path is too long); the patcher still works normally  
+**No 3D background:** from source, check that `OpenGLWorldEditor.py` is in the project root; otherwise OpenGL is unavailable on this machine (or the path is too long). The patcher still works normally  
 **Something failed:** see `patcher.log` next to the executable, or run `WC3LanguagePatcher.exe --build frFR` to get a log without the window
 
 # Technical Details (for the nerds)
@@ -129,6 +132,7 @@ On the localization side, reverse engineering was also necessary because new key
 Additionally, the internal file structure used for campaign and menu localization has changed across versions. This meant that older configuration formats had to be converted into newer formats compatible with the latest game builds—another aspect that required careful inspection and tooling.
 
 ## Credits
+- 3D background: [openGL-WorldEditor](https://github.com/MashiroW/openGL-WorldEditor) (separate project)
 - MPQ Editor & CASCView by Ladislav Zeluza
 - The 2003 Blizzard Entertainment team for Warcraft III
 

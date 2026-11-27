@@ -1,4 +1,6 @@
 __pycache__/ 
+# 3D background: separate project (github.com/MashiroW/openGL-WorldEditor), fetched at build time
+OpenGLWorldEditor.py
 patcher original.py 
 MPQ_Data/
 CASC_Data/
