@@ -79,9 +79,11 @@ Manual alternative with CascView, from modern WC3 (1.30+):
 2. Then copy to `CASC_Data/[REGION]/.w3mod/`
 
 ### Missing Strings (translation options)
-Strings that did not exist in 1.27 use the bundled AI translations; the few left are translated
-online (**Translate online if needed**, on by default, recommended). If you turn it off, choose what
-those strings become: the target's English text (safe) or empty (may break some texts).
+Strings that did not exist in 1.27 use the bundled translations. For a 1.27 source and a 1.31
+target they cover everything, so nothing is sent online. Another source or target version can need
+strings the patcher has never seen: those are translated online (**Translate online if needed**, on
+by default, recommended). If you turn it off, choose what those strings become: the target's English
+text (safe) or empty (may break some texts).
 Original texts (1.27 and target) are always kept.
 
 ### Step 4: Custom Content (optional)
@@ -135,18 +137,19 @@ Notably, I had never worked with the code side of the Warcraft III World Editor 
 
 For example, the campaign map The Purge was broken due to deprecated AI scripting related to Mal'Ganis. Fixing this involved manually identifying legacy syntax that recent versions of the World Editor compiler no longer support, and restructuring the code accordingly.
 
-On the localization side, reverse engineering was also necessary because new keys and variables have been added over the years across patches, while others have been removed (especially those used by the World Editor UI). To handle these inconsistencies, the 1,231 strings added after 1.27 (identical for every language) were translated once with context-aware AI translation, using each language's official 1.27 terminology, and are shipped in `translations/`. The patcher therefore needs no online API, no GPU and no large ML model. The few strings left are translated online (on by default, can be turned off in the UI).
+On the localization side, reverse engineering was also necessary because new keys and variables have been added over the years across patches, while others have been removed (especially those used by the World Editor UI). To handle these inconsistencies, the strings added after 1.27 (about 1,600 per language) were translated once with context-aware AI translation, using each language's official 1.27 terminology, and are shipped in `translations/`. The patcher therefore needs no online API, no GPU and no large ML model for a 1.27 to 1.31 conversion. Online translation (on by default, can be turned off in the UI) is only used for strings of other versions.
 
 **How missing strings are filled (note for maintainers).** Only strings that a 1.27 install does not have are translated; everything else is Blizzard's original text, kept as is. For a French build that is about 1,700 strings out of roughly 22,000.
 
-| Files | Missing strings | Translated by |
+| Files | Missing strings | Filled from |
 |---|---|---|
-| `ui/worldeditstrings.txt`, `ui/worldeditgamestrings.txt`, `ui/framedef/globalstrings.fdf` | ~1,230 per language | `translations/<lang>.json` (AI, done once, offline) |
-| `ui/triggerstrings.txt`, `units/*.txt`, other `ui/` and `ui/framedef/` files | ~460 per language | online at build time (Google, then MyMemory) |
+| `ui/worldeditstrings.txt`, `ui/worldeditgamestrings.txt`, `ui/framedef/globalstrings.fdf` | ~1,230 per language | `translations/<lang>.json` |
+| `ui/triggerstrings.txt` (World Editor trigger texts) | ~335 per language | `translations/<lang>.json`, kept in English: Blizzard left this file in English in every 1.27 localization |
+| `units/*.txt`, other `ui/` and `ui/framedef/` files (new items, abilities, network messages) | ~45 per language | `translations/<lang>.json` |
 | `ui/campaignstrings*.txt` | none | converted from the 1.27 files |
 | `ui/war3skins.txt`, help, ToS and license texts | none | config or plain text, copied from 1.27 |
 
-Both lists are the same for every language: they are the strings Blizzard added between 1.28 and 1.31. With *Translate online* off (or if the online services fail), the second group falls back to the target's English text, or empty. A source older than 1.27 lacks more strings, which also go online. Moving the second group into the JSON files would make builds fully offline; it was left online on purpose.
+The JSON files were built by running the patcher's text step on the official 1.27 pack of each language against a 1.31.1 target and listing every string left without a translation; `_build/tools/build_translation_cache.py` validates and imports them. Each localization has its own list (Polish 1.27b already has the newer items, for example). There is no official 1.27 Simplified Chinese pack: zhCN uses the Traditional Chinese list. A string that is in none of the JSON files (another source or target version) goes online at build time (Google, then MyMemory), or falls back to the target's English text, or empty, when *Translate online* is off or the services fail.
 
 Additionally, the internal file structure used for campaign and menu localization has changed across versions. This meant that older configuration formats had to be converted into newer formats compatible with the latest game builds—another aspect that required careful inspection and tooling.
 

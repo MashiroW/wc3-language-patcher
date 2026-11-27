@@ -88,7 +88,8 @@ def missing_strings(region_dir: Path):
 
 
 def tokens(text):
-    return sorted(_PROTECT_RE.findall(text))
+    # "35% for 5 seconds": a percent sign followed by a space and a word is prose
+    return sorted(t for t in _PROTECT_RE.findall(text) if not re.fullmatch(r"% [A-Za-z]", t))
 
 
 def validate(english, translated):
@@ -97,7 +98,12 @@ def validate(english, translated):
         problems.append(f"tokens differ: {tokens(english)} vs {tokens(translated)}")
     if "&" in english and "&" not in translated:
         problems.append("menu accelerator '&' lost")
-    if '"' in translated:
+    if '"' in english:
+        # trigger editor text: "Set life of ",~Unit," to ",~Value (the quotes and
+        # the ~parameters are part of the format)
+        if translated.count('"') != english.count('"') or translated.count("~") != english.count("~"):
+            problems.append("quotes or ~parameters of the trigger format changed")
+    elif '"' in translated:
         problems.append("contains a double quote")
     if not translated.strip():
         problems.append("empty")
@@ -132,7 +138,8 @@ def cmd_import(region, translated_file, source="AI translation, context-aware"):
     cache["source"] = source
     ok = rejected = 0
     for en, tr in data.items():
-        tr = tr.replace('"', "'")
+        if '"' not in en:
+            tr = tr.replace('"', "'")
         problems = validate(en, tr)
         if problems:
             rejected += 1
