@@ -27,7 +27,56 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 # Add to Python path (insert at beginning for priority)
 sys.path.insert(0, current_dir)
 
-from app_paths import resource_path, resource_dir, workspace_dir, ensure_workspace_folders
+# Paths: from source, everything is next to this file. In the .exe, the bundled
+# files are in PyInstaller's folder and the user's data goes next to the .exe.
+FROZEN = getattr(sys, "frozen", False)
+
+
+def resource_path(*parts):
+    """Files shipped with the program (templates, translations, music...)."""
+    return Path(getattr(sys, "_MEIPASS", current_dir)).joinpath(*parts)
+
+
+def workspace_dir():
+    """Where MPQ_Data, CASC_Data and merged live."""
+    if os.environ.get("WC3_PATCHER_WORKSPACE"):
+        return Path(os.environ["WC3_PATCHER_WORKSPACE"]).resolve()
+    if not FROZEN:
+        return Path(current_dir)
+    exe_dir = Path(sys.executable).parent
+    try:
+        (exe_dir / ".write_test").write_text("ok")
+        (exe_dir / ".write_test").unlink()
+        return exe_dir
+    except OSError:
+        pass
+    # not writable (e.g. under Program Files): use Documents instead
+    fallback = Path.home() / "Documents" / "WC3 Language Patcher"
+    fallback.mkdir(parents=True, exist_ok=True)
+    return fallback
+
+
+# Each data folder gets a placeholder.txt saying what goes inside
+PLACEHOLDERS = {
+    "MPQ_Data": "Optional: 1.27 archives extracted by hand (e.g. frFR-MPQ/war3.mpq/...).\n"
+                "Normally not needed: use \"Open MPQ\" to pick your 1.27 install folder.\n",
+    "CASC_Data": "Files of the target version (e.g. frfr.w3mod/...), extracted automatically\n"
+                 "from the selected target. They override the 1.27 files.\n",
+    "merged": "Built patches (<lang>_patch.zip). Copy them with LANGUAGE_CHANGER.bat\n"
+              "into the Warcraft III folder and run the .bat.\n",
+}
+
+
+def create_data_folders(base):
+    for name, text in PLACEHOLDERS.items():
+        try:
+            (Path(base) / name).mkdir(parents=True, exist_ok=True)
+            note = Path(base) / name / "placeholder.txt"
+            if not note.exists():
+                note.write_text(text, encoding="utf-8")
+        except OSError:
+            pass
+
 
 os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
 
@@ -91,7 +140,7 @@ def run_region(mpq_path, lang, log, target_dir=None, allow_online=False, source_
         progress_callback=log,
         mpq_to_casc_path=str(mpq_path) + "-converted-to-CASC",
         workspace_dir=workspace_dir(),
-        resource_dir=resource_dir(),
+        resource_dir=resource_path(),
         allow_online_translation=allow_online,
         templates_dir=templates,
         missing_fallback=missing_fallback,
@@ -355,7 +404,7 @@ class CustomMainWindow(QMainWindow):
         self.casc_base_path = self.base_path / "CASC_Data"
         
         # Create the folders (with a placeholder.txt explaining each one)
-        ensure_workspace_folders(self.base_path)
+        create_data_folders(self.base_path)
         self.update_output_button()
         
         # Load saved settings
@@ -1059,7 +1108,7 @@ def run_headless(args):
       --no-online  no online translation for strings without a bundled translation
       --empty      with --no-online: leave those strings empty instead of English
     Output goes to patcher.log in the workspace folder."""
-    ensure_workspace_folders(workspace_dir())
+    create_data_folders(workspace_dir())
     log_path = workspace_dir() / "patcher.log"
     with open(log_path, "a", encoding="utf-8") as log_file:
         def log(msg):
@@ -1122,7 +1171,7 @@ if __name__ == "__main__":
     if scene_widget is None:
         hint = ""
         err = f"{OPENGL_IMPORT_ERROR}" if OPENGL_IMPORT_ERROR else ""
-        if "206" in err or "trop long" in err or "too long" in err or len(str(resource_dir())) > 150:
+        if "206" in err or "trop long" in err or "too long" in err or len(str(resource_path())) > 150:
             hint = ("\n\n3D background unavailable: the folder path is too long for Windows.\n"
                     "Move the WC3LanguagePatcher folder somewhere shorter (e.g. C:\\WC3Patcher).")
         scene_widget = QLabel("WC3 Localization Patcher" + hint)
