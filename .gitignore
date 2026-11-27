@@ -1,24 +1,15 @@
-__pycache__/ 
+__pycache__/
+patcher original.py
+
 # 3D background: separate project (github.com/MashiroW/openGL-WorldEditor), fetched at build time
 OpenGLWorldEditor.py
-patcher original.py 
+
+# Created by the patcher
 MPQ_Data/
 CASC_Data/
 merged/
-build/
-dist/
-translations/_todo/
-__pycache__/
-dist_new/
-RAPPORT.md
-dist_build/
-_e2e/
-dist_build2/
-dist_build_old/
-release/
+patcher.log
 
-# Build and maintenance tools (kept locally, not published)
-build_exe.bat
-wc3_language_patcher.spec
-requirements-dev.txt
-tools/
+# Build and maintenance tools (kept locally, not published) and the built exe
+_build/
+dist/

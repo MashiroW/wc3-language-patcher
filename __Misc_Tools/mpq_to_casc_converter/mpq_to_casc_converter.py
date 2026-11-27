@@ -1,4 +1,3 @@
-import os
 import re
 import shutil
 from pathlib import Path
@@ -27,14 +26,6 @@ TFT_SCENARIO_MAPS = [
     "(10)Skibi'sCastleTD.w3x", "(12)WormWar.w3x"
 ]
 
-# Highest priority last: a file in War3Patch.mpq overrides the same file elsewhere
-MPQ_PRIORITY = {
-    "war3.mpq": 0,
-    "war3x.mpq": 1,
-    "war3xlocal.mpq": 2,
-    "war3patch.mpq": 3,
-}
-
 # Entries of structure.txt that are not game files
 _IGNORED_STRUCTURE_ENTRIES = {"structure.txt", "file_structure.bat"}
 
@@ -52,15 +43,6 @@ def find_child_ci(folder: Path, name: str):
         if child.name.lower() == low:
             return child
     return None
-
-
-def find_path_ci(base: Path, *parts):
-    current = base
-    for part in parts:
-        current = find_child_ci(current, part)
-        if current is None:
-            return None
-    return current
 
 
 def load_structure(structure_file: Path):

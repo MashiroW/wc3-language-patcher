@@ -6,7 +6,6 @@ uses. Encrypted ('E') chunks are not supported.
 """
 from __future__ import annotations
 
-import os
 import re
 import struct
 import zlib

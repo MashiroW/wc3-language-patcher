@@ -70,9 +70,3 @@ def mpq_source_version(folder) -> str:
     except Exception:
         pass
     return ""
-
-
-def short_casc_version(version: str) -> str:
-    """'1.31.1.12164' -> '1.31.1'."""
-    parts = (version or "").strip().split(".")
-    return ".".join(parts[:3]) if len(parts) >= 3 else (version or "").strip()

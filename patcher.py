@@ -103,7 +103,6 @@ STEP_STYLE = """
 """
 
 from PyQt5.QtCore import QThread, pyqtSignal
-from io import StringIO
 
 # The 3D background is optional: the patcher must still work on machines
 # where OpenGL is unavailable (VMs, remote desktop, old drivers...).
@@ -128,7 +127,7 @@ def _log_startup(msg):
 from __Misc_Tools.patches_maker.patches_maker import build_patch_for_region
 from __Misc_Tools.mpq_to_casc_converter.mpq_to_casc_converter import convert_mpq_to_casc
 from __Misc_Tools.mpq_reader.install_extractor import extract_install, find_archives, ARCHIVES
-from __Misc_Tools.casc_reader.casc import CASCStorage, extract_locale, present_locales
+from __Misc_Tools.casc_reader.casc import extract_locale
 from __Misc_Tools.casc_reader.target import prepare_target, inspect_target, describe_locales
 from __Misc_Tools.game_version import mpq_source_version
 
@@ -222,51 +221,6 @@ class RegionProcessor(QThread):
         finally:
             self.finished.emit()
 
-
-class CascImporter(QThread):
-    """Extracts one locale of a modern install into CASC_Data/<lang>.w3mod."""
-    progress = pyqtSignal(str)
-    done = pyqtSignal(bool)
-
-    def __init__(self, game_dir, lang):
-        super().__init__()
-        self.game_dir = game_dir
-        self.lang = lang
-
-    def run(self):
-        ok = False
-        try:
-            ok = import_casc_locale(self.game_dir, self.lang, self.progress.emit)
-        except Exception as e:
-            self.progress.emit(f"  | ⛔ CASC import failed: {e}")
-        self.done.emit(ok)
-
-
-class InstallImporter(QThread):
-    """Extracts the 4 archives of a 1.27 install into MPQ_Data/<lang>-MPQ."""
-    progress = pyqtSignal(str)
-    done = pyqtSignal(bool)
-
-    def __init__(self, install_dir, region_dir):
-        super().__init__()
-        self.install_dir = install_dir
-        self.region_dir = region_dir
-
-    def run(self):
-        ok = False
-        try:
-            for name in ARCHIVES:
-                target = Path(self.region_dir) / name
-                if target.exists():
-                    shutil.rmtree(target)
-            results = extract_install(self.install_dir, self.region_dir, log=self.progress.emit)
-            failed = sum(len(f) for _, f in results.values())
-            if failed:
-                self.progress.emit(f"  | ⚠️ {failed} file(s) could not be extracted")
-            ok = True
-        except Exception as e:
-            self.progress.emit(f"  | ⛔ Import failed: {e}")
-        self.done.emit(ok)
 
 class CustomMainWindow(QMainWindow):
     def __init__(self, EditorOpenGLwidget):
@@ -588,7 +542,6 @@ class CustomMainWindow(QMainWindow):
 
     def detect_existing_languages(self):
         # Create a set of lowercase language codes for matching
-        lang_codes_lower = {code.lower() for code in LANGUAGE_CODES}
         
         detected_languages = []
         
@@ -932,33 +885,8 @@ class CustomMainWindow(QMainWindow):
         self.worker.finished.connect(self.process_next_language)
         self.worker.start()
 
-    def import_install(self):
-        lang = self.lang_combo.currentText()
-        folder = QFileDialog.getExistingDirectory(
-            self, f"Select the Warcraft III MPQ install for {lang} (contains war3.mpq, 1.27 recommended)")
-        if not folder:
-            return
-        found = find_archives(folder)
-        missing = [a for a in ARCHIVES if a not in found]
-        if missing:
-            QMessageBox.warning(self, "Archives not found",
-                                "These archives are missing in the selected folder:\n" + ", ".join(missing))
-            return
-        if lang not in [item[0] for item in self.selected_languages]:
-            self.add_language()
-        region_dir = self.mpq_base_path / f"{lang}-MPQ"
-        for leftover in region_dir.glob("*/placeholder.txt"):
-            leftover.unlink()
-        self.log_message(f"\nImporting 1.27 archives for {lang} from: {folder}")
-        self.set_ui_enabled(False)
-        self.importer = InstallImporter(folder, region_dir)
-        self.importer.progress.connect(self.log_message)
-        self.importer.done.connect(self.import_finished)
-        self.importer.start()
-
     def set_target(self, folder, quiet=False):
         self.target_dir = ""
-        self.target_version = ""
         self.target_edit.setText("")
         self.target_info.setText("No target selected: CASC_Data and the bundled 1.31 references are used.")
         if folder:
@@ -971,7 +899,6 @@ class CustomMainWindow(QMainWindow):
                 self.settings.setValue("target_casc", "")
                 return False
             self.target_dir = folder
-            self.target_version = info["version"]
             self.target_edit.setText(folder)
             self.target_info.setText(f"Warcraft III {info['version']} - installed languages: "
                                      f"{describe_locales(info['locales'])}")
@@ -1007,58 +934,6 @@ class CustomMainWindow(QMainWindow):
         merged = self.base_path / "merged"
         if merged.exists():
             self.show_in_explorer(str(merged))
-
-    def import_casc(self):
-        lang = self.lang_combo.currentText()
-        folder = QFileDialog.getExistingDirectory(
-            self, "Select the modern Warcraft III folder (contains .build.info and Data)")
-        if not folder:
-            return
-        if not (Path(folder) / ".build.info").exists() or not (Path(folder) / "Data").is_dir():
-            QMessageBox.warning(self, "Not a CASC install",
-                                "This folder has no .build.info / Data folder.\n"
-                                "Select the Warcraft III folder of a 1.30+ or Reforged install.")
-            return
-        try:
-            storage = CASCStorage(folder)
-            stats = present_locales(storage)
-            version = storage.version
-            storage.close()
-        except Exception as e:
-            QMessageBox.warning(self, "Cannot read install", f"Could not read this install:\n{e}")
-            return
-        match = next((k for k in stats if k.lower() == lang.lower()), None)
-        installed = [k for k, (present, total) in stats.items() if total and present / total > 0.9]
-        if match is None or stats[match][0] == 0:
-            QMessageBox.warning(self, "Language not installed",
-                                f"{lang} is not stored in this install (version {version}).\n"
-                                f"Fully installed language(s): {', '.join(installed) or 'none'}")
-            return
-        present, total = stats[match]
-        if present < total:
-            reply = QMessageBox.question(
-                self, "Partial language data",
-                f"Only {present} of {total} {lang} files are installed locally "
-                f"(fully installed: {', '.join(installed) or 'none'}).\nImport the available files anyway?",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if reply != QMessageBox.Yes:
-                return
-        if lang not in [item[0] for item in self.selected_languages]:
-            self.add_language()
-        placeholder = casc_locale_folder(lang) / "placeholder.txt"
-        if placeholder.exists():
-            placeholder.unlink()
-        self.log_message(f"\nImporting {lang} locale from Warcraft III {version}: {folder}")
-        self.set_ui_enabled(False)
-        self.casc_importer = CascImporter(folder, match)
-        self.casc_importer.progress.connect(self.log_message)
-        self.casc_importer.done.connect(self.import_finished)
-        self.casc_importer.start()
-
-    def import_finished(self, ok):
-        self.set_ui_enabled(True)
-        self.update_lang_table()
-        self.log_message("✅ Import finished, you can now build the patch." if ok else "⛔ Import failed.")
 
     def save_settings(self):
         serializable = [(lang, ignore, mpq, casc) for lang, ignore, mpq, casc in self.selected_languages]
