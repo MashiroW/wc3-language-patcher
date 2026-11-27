@@ -2,7 +2,7 @@
 _Restore original voices and texts in modern WC3 versions (1.30+)_
 ![Comp 2_00000](https://github.com/user-attachments/assets/1ba6303e-2257-4189-ab41-17715a30a6c7)
 
-[![Version](https://img.shields.io/badge/version-1.0-2ea44f?style=for-the-badge)](https://github.com/MashiroW/wc3-language-patcher) [![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0wIDBoMTF2MTFIMHpNMTMgMGgxMXYxMUgxM3pNMCAxM2gxMXYxMUgwek0xMyAxM2gxMXYxMUgxM3oiLz48L3N2Zz4=&logoColor=white)](#) [![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#) [![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](#) [![Stars](https://img.shields.io/github/stars/MashiroW/wc3-language-patcher?style=for-the-badge&logo=github&color=e3b341)](https://github.com/MashiroW/wc3-language-patcher/stargazers) [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MashiroW)
+[![Version](https://img.shields.io/badge/version-1.0-2ea44f?style=for-the-badge)](https://github.com/MashiroW/wc3-language-patcher/releases/latest) [![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0wIDBoMTF2MTFIMHpNMTMgMGgxMXYxMUgxM3pNMCAxM2gxMXYxMUgwek0xMyAxM2gxMXYxMUgxM3oiLz48L3N2Zz4=&logoColor=white)](#) [![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#) [![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](#) [![Stars](https://img.shields.io/github/stars/MashiroW/wc3-language-patcher?style=for-the-badge&logo=github&color=e3b341)](https://github.com/MashiroW/wc3-language-patcher/stargazers) [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MashiroW)
 
 ---
 
@@ -24,8 +24,10 @@ https://github.com/user-attachments/assets/a23cb941-a369-4feb-b027-e22366cd5baf
 ## Setup Guide
 
 ### Option A: Windows executable (recommended)
-1. Download `WC3LanguagePatcher-windows.zip` from the Releases page and unzip it anywhere you can write to.
+1. Download `WC3LanguagePatcher-windows.zip` from the [Releases page](https://github.com/MashiroW/wc3-language-patcher/releases/latest) and unzip it in a short path you can write to (e.g. `C:\WC3LanguagePatcher`).
 2. Run `WC3LanguagePatcher.exe`. Nothing else to install: no Python, no MPQ Editor, no API key.
+
+The folders `MPQ_Data`, `CASC_Data` and `merged` next to the executable each contain a `placeholder.txt` explaining what goes inside.
 
 ### Option B: run from source (Windows, Linux, macOS)
 1. Install Python 3.12 (64-bit).
@@ -43,7 +45,8 @@ To build the executable yourself: run `build_exe.bat` (creates `dist/WC3Language
 1. Launch patcher
 2. Select language code (e.g. `frFR`, `esES`) and click **+**
 3. Pick the Warcraft III **1.27 install of that language** (the folder containing `war3.mpq`).
-   It can be changed later with the button of the **1.27 Source (MPQ)** column.
+   It can be changed later with the **Open MPQ** button of the **Source (MPQ)** column, which also shows
+   the detected game version (e.g. `Open MPQ (1.27b)`, read from `game.dll`).
 
 ### Step 2: MPQ Data (Source of your localization files)
 Nothing to do: at build time the `.mpq` archives of the 1.27 folder are read directly, no extraction needed.
@@ -77,29 +80,34 @@ online (**Translate online if needed**, on by default, recommended). If you turn
 those strings become: the target's English text (safe) or empty (may break some texts).
 Original texts (1.27 and target) are always kept.
 
-### Step 4: Add Custom Content
-Place in `_HomeMade_Data/[REGION]/`:
-- Converted cutscenes MP3s in Movies/ (convert with VLC)
-- Fixed campaign maps, e.g. maps/campaign/human06.w3m (Mal'Ganis AI fix)
+### Step 4: Custom Content (optional)
+The audio of the 9 cinematics is extracted automatically from the 1.27 `Movies` folder.
+Anything else can be placed in `_HomeMade_Data/[REGION]/`, e.g. fixed campaign maps such as
+`maps/campaign/human06.w3m` (Mal'Ganis AI fix).
 
 ### Step 5: Build & Apply Patch
-1. Click **Build Patch** and confirm the target version
-2. Click **Open output folder (merged)** (the full path is also shown in the console), then copy:
-   * `[REGION]_Patch.zip`
+1. Click **BUILD PATCH** and confirm the target version
+2. Click **Open output folder (merged)** (the full path is also shown in the console). It contains:
+   * `[region]_patch.zip` (e.g. `frfr_patch.zip`)
    * `LANGUAGE_CHANGER.bat`
-3. Place these in your Warcraft III installation:
-   * **Reforged (v1.32+):** place in `[WC3 Folder]/_retail_/`
+3. Copy them, with `enus_patch.zip` (the English base), into your Warcraft III installation:
+   * **1.30 / 1.31:** the game root folder (next to `Warcraft III.exe`)
+   * **Reforged (v1.32+):** `[WC3 Folder]/_retail_/`
+4. Run `LANGUAGE_CHANGER.bat` and pick your language. It extracts the patch, enables
+   *Allow Local Files* and sets the game language in the registry (it asks for administrator
+   rights if the game folder is not writable).
 
 ## Important Notes
 * **Map Locations:**
-  * MPQ version’s balancing → `/Maps/[LANGUAGE]/Maps Patch/`
+  * MPQ version’s balancing → `/Maps/[LANGUAGE] Maps Patch (1.27 backup)/`
   * CASC version’s balancing → `/Maps/`
 * **Avoid Spoilers:** Don’t launch campaign maps from menu
 
 ## Troubleshooting
 **Mal’Ganis won’t attack:** Use fixed `human06.w3m` from `_HomeMade_Data/`  
-**Cutscene audio missing:** Verify MP3s in `Movies/` folder  
-**No 3D background:** OpenGL is unavailable on this machine; the patcher still works normally
+**Cutscene audio missing:** check that the 1.27 install has its `Movies` folder (9 `.mpq` cinematics)  
+**Language not applied in game:** run `LANGUAGE_CHANGER.bat` again and check its *Checking the registry* lines  
+**No 3D background:** OpenGL is unavailable on this machine (or the path is too long); the patcher still works normally  
 **Something failed:** see `patcher.log` next to the executable, or run `WC3LanguagePatcher.exe --build frFR` to get a log without the window
 
 # Technical Details (for the nerds)

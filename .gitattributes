@@ -1,0 +1,5 @@
+*.bat text eol=crlf
+*.mp3 binary
+*.png binary
+*.w3m binary
+*.w3x binary
