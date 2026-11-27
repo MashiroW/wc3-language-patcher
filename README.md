@@ -36,6 +36,9 @@ The folders `MPQ_Data`, `CASC_Data` and `merged` next to the executable each con
    (separate project) in the project root. Without it the patcher works the same, without the 3D scene.
 4. `python patcher.py`
 
+### Build the executable yourself (optional)
+Run `_build\build_exe.bat` (needs Python 3.12). It creates `dist\WC3LanguagePatcher\` and `dist\WC3LanguagePatcher-windows.zip`.
+
 ### Optional tools
 (⚠️ Your browser might warn you because this website is http)
 - [MPQ Editor and CASCView](http://www.zezula.net/en/mpq/download.html) are no longer required: the patcher reads 1.27 MPQ archives and modern CASC installs itself. They remain useful to inspect files.

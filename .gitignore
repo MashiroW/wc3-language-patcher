@@ -10,6 +10,7 @@ CASC_Data/
 merged/
 patcher.log
 
-# Build and maintenance tools (kept locally, not published) and the built exe
-_build/
+# Builder (_build/): its Python environment, temporary files and the built exe stay local
+_build/.venv/
+_build/work/
 dist/
