@@ -79,6 +79,9 @@ To install a language:
      LANGUAGE_CHANGER.bat
 2. Run LANGUAGE_CHANGER.bat and pick your language.
 
+With "4 - Auto-patching" on (the default), step 1 is done for you after each
+build: the patches and LANGUAGE_CHANGER.bat are copied to the target game folder.
+
 enus_patch.zip is made from the target version at every build
 (section "1 - Target Version" must be set).
 """
@@ -195,6 +198,44 @@ def run_region(mpq_path, lang, log, target_dir=None, allow_online=False, source_
     return ok
 
 
+def game_install_folder(target_dir):
+    """Where the patches go in a game install: _retail_ for Reforged, else its root."""
+    retail = Path(target_dir) / "_retail_"
+    return retail if retail.is_dir() else Path(target_dir)
+
+
+def install_patches(target_dir, log):
+    """Auto-patching: copy the built patches and LANGUAGE_CHANGER.bat from merged/
+    into the game folder. Returns True if everything was copied."""
+    merged = workspace_dir() / "merged"
+    dest = game_install_folder(target_dir)
+    # one archive per language: its most recent build (a rebuild gets a time stamp)
+    latest = {}
+    for archive in merged.glob("*_patch*.zip"):
+        lang = archive.name.lower().split("_patch")[0]
+        if lang not in latest or archive.stat().st_mtime > latest[lang].stat().st_mtime:
+            latest[lang] = archive
+    files = [(archive, f"{lang}_patch.zip") for lang, archive in sorted(latest.items())]
+    changer = merged / "LANGUAGE_CHANGER.bat"
+    if changer.exists():
+        files.append((changer, changer.name))
+    if not latest:
+        log("🚚 Auto-patching: nothing to copy, no patch in the output folder")
+        return False
+    log(f"🚚 Auto-patching: copying {len(files)} file(s) to {dest}")
+    try:
+        for src, name in files:
+            log(f"  | 📥 {name}")
+            shutil.copy2(src, dest / name)
+    except OSError as e:
+        log(f"  | ⛔ Could not copy to the game folder: {e}")
+        log("  |   Close the game, or copy the files of the output folder yourself "
+            "(the game folder may need administrator rights).")
+        return False
+    log("✅ Game folder ready: run LANGUAGE_CHANGER.bat there and pick your language.")
+    return True
+
+
 def casc_locale_folder(lang):
     return workspace_dir() / "CASC_Data" / f"{lang.lower()}.w3mod"
 
@@ -249,6 +290,21 @@ class RegionProcessor(QThread):
             self.error.emit(traceback.format_exc())
         finally:
             self.finished.emit()
+
+
+class PatchInstaller(QThread):
+    """Auto-patching in the background (the archives are large)."""
+    progress = pyqtSignal(str)
+
+    def __init__(self, target_dir):
+        super().__init__()
+        self.target_dir = target_dir
+
+    def run(self):
+        try:
+            install_patches(self.target_dir, self.progress.emit)
+        except Exception as e:
+            self.progress.emit(f"  | ⛔ Auto-patching failed: {e}")
 
 
 class CustomMainWindow(QMainWindow):
@@ -358,8 +414,21 @@ class CustomMainWindow(QMainWindow):
         tr_group.setLayout(tr_layout)
         right_layout.addWidget(tr_group)
 
+        # Auto-patching: put the result straight into the target game folder
+        auto_group = QGroupBox("4 · Auto-patching")
+        auto_layout = QVBoxLayout()
+        self.autopatch_checkbox = QCheckBox(
+            "Copy the patches and LANGUAGE_CHANGER.bat into the target game folder (recommended)")
+        self.autopatch_checkbox.setToolTip(
+            "On: after the build, every <lang>_patch.zip of the output folder and LANGUAGE_CHANGER.bat\n"
+            "are copied to the root of the target version (section 1). You only have to run the .bat there.\n"
+            "Off: the files stay in the output folder (merged) and you copy them yourself.")
+        auto_layout.addWidget(self.autopatch_checkbox)
+        auto_group.setLayout(auto_layout)
+        right_layout.addWidget(auto_group)
+
         # steps 1-2-3: green numbered titles so the order is obvious
-        for group in (target_group, lang_group, tr_group):
+        for group in (target_group, lang_group, tr_group, auto_group):
             group.setStyleSheet(STEP_STYLE.format(base=QApplication.font().pointSize()))
 
         # Patch Button
@@ -426,6 +495,8 @@ class CustomMainWindow(QMainWindow):
         self.add_button.clicked.connect(self.add_language)
         self.patch_button.clicked.connect(self.patch_languages)
         self.online_checkbox.setChecked(self.settings.value("online_translation", True, type=bool))
+        self.autopatch_checkbox.setChecked(self.settings.value("auto_patching", True, type=bool))
+        self.autopatch_checkbox.toggled.connect(lambda on: self.settings.setValue("auto_patching", on))
         if self.settings.value("missing_fallback", "english", type=str) == "empty":
             self.fallback_empty.setChecked(True)
         self.online_checkbox.toggled.connect(self.save_translation_options)
@@ -858,6 +929,7 @@ class CustomMainWindow(QMainWindow):
         """Enable/disable UI elements during processing and update styles"""
         self.patch_button.setEnabled(enabled)
         self.online_checkbox.setEnabled(enabled)
+        self.autopatch_checkbox.setEnabled(enabled)
         self.update_fallback_state(enabled)
         self.target_browse.setEnabled(enabled)
         self.target_clear.setEnabled(enabled)
@@ -892,11 +964,17 @@ class CustomMainWindow(QMainWindow):
 
     def process_next_language(self):
         if not self.languages_to_process:
-            self.set_ui_enabled(True)
             self.log_message("Patch completed for selected languages!")
             self.log_message(f"📁 Output folder: {self.base_path / 'merged'}")
-            self.log_message("")
-            self.update_output_button()
+            if self.autopatch_checkbox.isChecked() and self.target_dir:
+                self.installer = PatchInstaller(self.target_dir)
+                self.installer.progress.connect(self.log_message)
+                self.installer.finished.connect(self.finish_build)
+                self.installer.start()
+                return
+            if self.autopatch_checkbox.isChecked():
+                self.log_message("ℹ️ Auto-patching skipped: no target version selected (section 1)")
+            self.finish_build()
             return
         
         lang, rel_mpq_path = self.languages_to_process.pop(0)
@@ -914,6 +992,11 @@ class CustomMainWindow(QMainWindow):
         self.worker.error.connect(self.log_message)
         self.worker.finished.connect(self.process_next_language)
         self.worker.start()
+
+    def finish_build(self):
+        self.set_ui_enabled(True)
+        self.log_message("")
+        self.update_output_button()
 
     def set_target(self, folder, quiet=False):
         self.target_dir = ""
@@ -1010,10 +1093,11 @@ def run_headless(args):
         WC3LanguagePatcher.exe --import <lang> <1.27 folder>
         WC3LanguagePatcher.exe --import-casc <modern game folder> <lang>
         WC3LanguagePatcher.exe --build <lang> [--source <1.27 folder>] [--target <modern game folder>]
-                               [--no-online] [--empty]
+                               [--no-online] [--empty] [--install]
       --source     read the 1.27 .mpq archives directly (otherwise MPQ_Data/<lang>-MPQ)
       --no-online  no online translation for strings without a bundled translation
       --empty      with --no-online: leave those strings empty instead of English
+      --install    auto-patching: copy the patches and LANGUAGE_CHANGER.bat into the target
     Output goes to patcher.log in the workspace folder."""
     create_data_folders(workspace_dir())
     log_path = workspace_dir() / "patcher.log"
@@ -1041,6 +1125,8 @@ def run_headless(args):
                 ok = run_region(mpq_path, lang, log, target_dir=target, allow_online=online,
                                 source_dir=source,
                                 missing_fallback="empty" if ("--empty" in args and not online) else "english")
+                if ok and target and "--install" in args:
+                    ok = install_patches(target, log)
                 return 0 if ok else 1
             log(run_headless.__doc__)
             return 2

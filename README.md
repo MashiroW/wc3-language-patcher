@@ -97,7 +97,9 @@ Anything else can be placed in `_HomeMade_Data/[REGION]/`, e.g. fixed campaign m
      every build. **Always take it, whatever the language:** `LANGUAGE_CHANGER.bat` extracts it
      first, then your language over it
    * `LANGUAGE_CHANGER.bat` and a `README.txt` repeating these steps
-3. Copy the two `.zip` files and the `.bat` into your Warcraft III installation:
+3. With **4 · Auto-patching** on (the default), the patcher copies the `.zip` files and the `.bat`
+   into the target game folder itself, and you can skip to the next step. Otherwise copy them into
+   your Warcraft III installation:
    * **1.30 / 1.31:** the game root folder (next to `Warcraft III.exe`)
    * **Reforged (v1.32+):** `[WC3 Folder]/_retail_/`
 4. Run `LANGUAGE_CHANGER.bat` and pick your language. It extracts the patch, enables
