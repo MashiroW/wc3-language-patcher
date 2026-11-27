@@ -837,9 +837,7 @@ class CustomMainWindow(QMainWindow):
         if not self.selected_languages:
             self.log_message("No languages selected for patching!")
             return
-            
-        if not self.confirm_target():
-            return
+
         # one button does everything: ask now for any missing MPQ source
         for lang, ignore, _, _ in self.selected_languages:
             if not ignore and not self.has_source(lang):
@@ -996,25 +994,6 @@ class CustomMainWindow(QMainWindow):
                                 "Select the main folder of a Warcraft III 1.30+ install.")
             return False
         return self.set_target(folder)
-
-    def confirm_target(self):
-        """Asked before every build, like the original tool."""
-        box = QMessageBox(self)
-        box.setWindowTitle("Target version")
-        if self.target_dir:
-            box.setText(f"Build the patch for this target?\n\n{self.target_edit.text()}\n{self.target_info.text()}")
-            use = box.addButton("Build", QMessageBox.AcceptRole)
-        else:
-            box.setText("No target CASC version is selected.\n\nSelect the Warcraft III install the patch is for "
-                        "(1.31 recommended), or build with CASC_Data and the bundled 1.31 references.")
-            use = box.addButton("Build without target", QMessageBox.AcceptRole)
-        change = box.addButton("Select target...", QMessageBox.ActionRole)
-        box.addButton(QMessageBox.Cancel)
-        box.exec_()
-        clicked = box.clickedButton()
-        if clicked == change:
-            return self.browse_target()
-        return clicked == use
 
     def update_output_button(self):
         merged = self.base_path / "merged"

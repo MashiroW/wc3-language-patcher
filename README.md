@@ -60,7 +60,7 @@ Manual alternative (original workflow, still supported): extract these with MPQ 
 
 ### Step 3: Select the Target Version (CASC)
 In **Target Version (CASC)**, click **...** and pick the Warcraft III install the patch is for
-(1.30+, 1.31 recommended; the folder containing `.build.info` and `Data`). You are asked to confirm it before every build.
+(1.30+, 1.31 recommended; the folder containing `.build.info` and `Data`).
 
 At build time the patcher reads the target directly:
 - its **original files in the selected language** (those installed locally) override the 1.27 files and are never modified,
@@ -87,7 +87,7 @@ Anything else can be placed in `_HomeMade_Data/[REGION]/`, e.g. fixed campaign m
 `maps/campaign/human06.w3m` (Mal'Ganis AI fix).
 
 ### Step 5: Build & Apply Patch
-1. Click **BUILD PATCH** and confirm the target version
+1. Click **BUILD PATCH**
 2. Click **Open output folder (merged)** (the full path is also shown in the console). It contains:
    * `[region]_patch.zip` (e.g. `frfr_patch.zip`)
    * `LANGUAGE_CHANGER.bat`
