@@ -76,6 +76,13 @@ def create_data_folders(base):
                 note.write_text(text, encoding="utf-8")
         except OSError:
             pass
+    # the language switcher goes next to the built patches
+    changer = Path(base) / "merged" / "LANGUAGE_CHANGER.bat"
+    try:
+        if not changer.exists():
+            shutil.copy2(resource_path("__Misc_Tools", "LANGUAGE_CHANGER.bat"), changer)
+    except OSError:
+        pass
 
 
 os.environ['QT_AUTO_SCREEN_SCALE_FACTOR'] = '1'
