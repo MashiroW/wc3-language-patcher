@@ -43,8 +43,9 @@ The folders `MPQ_Data`, `CASC_Data` and `merged` next to the executable each con
 ## Usage Guide
 ### Step 1: Add Language Sources
 1. Launch patcher
-2. Select language code (e.g. `frFR`, `esES`) and click **+**
-3. Pick the Warcraft III **1.27 install of that language** (the folder containing `war3.mpq`).
+2. In **2 · Languages**, select a language code (e.g. `frFR`, `esES`) and click **+**
+3. Pick the Warcraft III **MPQ install of that language** (the folder containing `war3.mpq`; 1.27 recommended,
+   other MPQ versions should work too). You are asked every time you click **+**.
    It can be changed later with the **Open MPQ** button of the **Source (MPQ)** column, which also shows
    the detected game version (e.g. `Open MPQ (1.27b)`, read from `game.dll`).
 

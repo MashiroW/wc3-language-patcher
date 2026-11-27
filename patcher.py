@@ -92,6 +92,16 @@ LANGUAGE_CODES = sorted([
     "enUS", "esES", "frFR", "deDE", "itIT", "plPL", "ruRU", "zhCN", "zhTW", "koKR", "csCZ"
 ])
 
+# Numbered setup sections (1, 2, 3): green bold title over a light frame
+# ({base} = the normal font size, so the contents of the box keep their usual look)
+STEP_STYLE = """
+    QGroupBox {{ border: 1px solid #b8b8b8; border-radius: 4px; margin-top: 14px; padding-top: 8px;
+                font-weight: bold; font-size: 14px; }}
+    QGroupBox * {{ font-weight: normal; font-size: {base}pt; }}
+    QGroupBox::title {{ subcontrol-origin: margin; left: 8px; padding: 0 4px;
+                       color: #2e7d32; }}
+"""
+
 from PyQt5.QtCore import QThread, pyqtSignal
 from io import StringIO
 
@@ -292,7 +302,7 @@ class CustomMainWindow(QMainWindow):
         right_layout.setSpacing(10)
         
         # Target version (CASC install the patch is built for)
-        target_group = QGroupBox("Target Version (CASC)")
+        target_group = QGroupBox("1 · Target Version (CASC)")
         target_layout = QVBoxLayout()
         target_row = QHBoxLayout()
         self.target_edit = QLineEdit()
@@ -315,7 +325,7 @@ class CustomMainWindow(QMainWindow):
         right_layout.addWidget(target_group)
 
         # Language Selection Group
-        lang_group = QGroupBox("Language Configuration")
+        lang_group = QGroupBox("2 · Languages (MPQ sources)")
         lang_layout = QHBoxLayout()
         lang_layout.addWidget(QLabel("Language:"), 0)
         self.lang_combo = QComboBox()
@@ -344,7 +354,7 @@ class CustomMainWindow(QMainWindow):
         right_layout.addWidget(self.lang_table)
         
         # Translation of the strings the 1.27 version never had
-        tr_group = QGroupBox("Missing Strings")
+        tr_group = QGroupBox("3 · Missing Strings")
         tr_layout = QVBoxLayout()
         self.online_checkbox = QCheckBox("Translate online if needed (recommended, keep it on)")
         self.online_checkbox.setToolTip(
@@ -367,6 +377,10 @@ class CustomMainWindow(QMainWindow):
         tr_layout.addLayout(fallback_row)
         tr_group.setLayout(tr_layout)
         right_layout.addWidget(tr_group)
+
+        # steps 1-2-3: green numbered titles so the order is obvious
+        for group in (target_group, lang_group, tr_group):
+            group.setStyleSheet(STEP_STYLE.format(base=QApplication.font().pointSize()))
 
         # Patch Button
         self.patch_button = QPushButton("BUILD PATCH")
@@ -467,7 +481,7 @@ class CustomMainWindow(QMainWindow):
         volume_layout.addWidget(self.volume_label)
         
         volume_group.setLayout(volume_layout)
-        right_layout.insertWidget(1, volume_group)  # Insert after language group
+        right_layout.addWidget(volume_group)  # at the very bottom, under the console
         
         # Initialize media player
         self.init_background_music()
@@ -631,9 +645,11 @@ class CustomMainWindow(QMainWindow):
             self.selected_languages.append((lang, False, rel_mpq_path, rel_casc_path))
             self.log_message(f"Added language: {lang}")
             self.save_settings()
-            # ask right away for the 1.27 install of this language
-            if not self.has_source(lang):
-                self.choose_source(lang)
+            # always ask which MPQ install this language comes from, never reuse an old one
+            self.sources.pop(lang, None)
+            self.save_sources()
+            if not self.choose_source(lang, start_dir=""):
+                self.log_message(f"  No MPQ source selected for {lang} yet (use Open MPQ)")
             self.update_lang_table()
 
     # ------------------------------------------------ translation options ---
@@ -675,10 +691,10 @@ class CustomMainWindow(QMainWindow):
     def has_source(self, lang):
         return self.source_ok(lang) or self.extracted_folder(lang) is not None
 
-    def choose_source(self, lang):
+    def choose_source(self, lang, start_dir=None):
         folder = QFileDialog.getExistingDirectory(
-            self, f"Select the Warcraft III 1.27 folder for {lang} (contains war3.mpq)",
-            self.sources.get(lang, ""))
+            self, f"Select the Warcraft III MPQ install for {lang} (contains war3.mpq, 1.27 recommended)",
+            self.sources.get(lang, "") if start_dir is None else start_dir)
         if not folder:
             return False
         found = find_archives(folder)
@@ -689,7 +705,7 @@ class CustomMainWindow(QMainWindow):
             return False
         self.sources[lang] = folder
         self.save_sources()
-        self.log_message(f"1.27 source for {lang}: {folder}")
+        self.log_message(f"MPQ source for {lang}: {folder}")
         self.update_lang_table()
         return True
 
@@ -824,13 +840,13 @@ class CustomMainWindow(QMainWindow):
             
         if not self.confirm_target():
             return
-        # one button does everything: ask now for any missing 1.27 source
+        # one button does everything: ask now for any missing MPQ source
         for lang, ignore, _, _ in self.selected_languages:
             if not ignore and not self.has_source(lang):
-                QMessageBox.information(self, "1.27 source needed",
-                                        f"Select the Warcraft III 1.27 install folder for {lang}.")
+                QMessageBox.information(self, "MPQ source needed",
+                                        f"Select the Warcraft III MPQ install folder for {lang} (1.27 recommended).")
                 if not self.choose_source(lang):
-                    self.log_message(f"⛔ No 1.27 source for {lang}: build cancelled")
+                    self.log_message(f"⛔ No MPQ source for {lang}: build cancelled")
                     return
         self.log_message("Starting patch process...")
         self.log_message(f"🎯 Target: {self.target_dir or 'none (CASC_Data + bundled 1.31 references)'}")
@@ -907,7 +923,7 @@ class CustomMainWindow(QMainWindow):
         
         source = self.sources.get(lang) if self.source_ok(lang) else None
         self.log_message(f"\nProcessing language: {lang}")
-        self.log_message(f"1.27 source: {source or rel_mpq_path}")
+        self.log_message(f"MPQ source: {source or rel_mpq_path}")
 
         # Create and start worker
         self.worker = RegionProcessor(mpq_path, lang, allow_online=self.online_checkbox.isChecked(),
@@ -921,7 +937,7 @@ class CustomMainWindow(QMainWindow):
     def import_install(self):
         lang = self.lang_combo.currentText()
         folder = QFileDialog.getExistingDirectory(
-            self, f"Select the Warcraft III 1.27 folder for {lang} (contains war3.mpq)")
+            self, f"Select the Warcraft III MPQ install for {lang} (contains war3.mpq, 1.27 recommended)")
         if not folder:
             return
         found = find_archives(folder)
