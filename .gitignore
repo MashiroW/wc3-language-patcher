@@ -16,3 +16,9 @@ _e2e/
 dist_build2/
 dist_build_old/
 release/
+
+# Build and maintenance tools (kept locally, not published)
+build_exe.bat
+wc3_language_patcher.spec
+requirements-dev.txt
+tools/

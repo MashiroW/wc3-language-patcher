@@ -36,9 +36,6 @@ The folders `MPQ_Data`, `CASC_Data` and `merged` next to the executable each con
    (separate project) in the project root. Without it the patcher works the same, without the 3D scene.
 4. `python patcher.py`
 
-To build the executable yourself: run `build_exe.bat` (downloads `OpenGLWorldEditor.py` if it is missing,
-bundles it into the executable and creates `dist/WC3LanguagePatcher-windows.zip`).
-
 ### Optional tools
 (⚠️ Your browser might warn you because this website is http)
 - [MPQ Editor and CASCView](http://www.zezula.net/en/mpq/download.html) are no longer required: the patcher reads 1.27 MPQ archives and modern CASC installs itself. They remain useful to inspect files.
@@ -127,7 +124,7 @@ Notably, I had never worked with the code side of the Warcraft III World Editor 
 
 For example, the campaign map The Purge was broken due to deprecated AI scripting related to Mal'Ganis. Fixing this involved manually identifying legacy syntax that recent versions of the World Editor compiler no longer support, and restructuring the code accordingly.
 
-On the localization side, reverse engineering was also necessary because new keys and variables have been added over the years across patches, while others have been removed (especially those used by the World Editor UI). To handle these inconsistencies, the 1,231 strings added after 1.27 (identical for every language) were translated once with context-aware AI translation, using each language's official 1.27 terminology, and are shipped in `translations/`. The patcher therefore needs no online API, no GPU and no large ML model. The few strings left are translated online (on by default, can be turned off in the UI). Maintainers can regenerate or review them with `tools/build_translation_cache.py`.
+On the localization side, reverse engineering was also necessary because new keys and variables have been added over the years across patches, while others have been removed (especially those used by the World Editor UI). To handle these inconsistencies, the 1,231 strings added after 1.27 (identical for every language) were translated once with context-aware AI translation, using each language's official 1.27 terminology, and are shipped in `translations/`. The patcher therefore needs no online API, no GPU and no large ML model. The few strings left are translated online (on by default, can be turned off in the UI).
 
 Additionally, the internal file structure used for campaign and menu localization has changed across versions. This meant that older configuration formats had to be converted into newer formats compatible with the latest game builds—another aspect that required careful inspection and tooling.
 

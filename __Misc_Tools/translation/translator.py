@@ -2,12 +2,10 @@
 
 Order of lookup for each English string:
   1. Bundled translation cache  (translations/<region>.json, shipped with the
-     program, generated once by the maintainer with context-aware AI
-     translation; see tools/build_translation_cache.py)
-  2. Optional online machine translation (free endpoints, no API key).
-     Disabled by default because the free endpoints are rate-limited and may
-     be blocked; it can be enabled with allow_online=True.
-  3. The English text itself (the game shows it as-is).
+     program, generated once with context-aware AI translation)
+  2. Online machine translation (free endpoints, no API key), only for the
+     strings missing from the cache. On by default in the UI (allow_online).
+  3. The English text itself (the game shows it as-is), or an empty value.
 
 Nothing here needs PyTorch, transformers, GPUs or API keys.
 """
