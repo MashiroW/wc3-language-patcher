@@ -89,13 +89,26 @@ def prepare_target(game_dir, lang, casc_folder, work_dir, bundled_templates, bun
                         f"the 1.27 localized versions are used instead")
             if entries and is_reforged_layout(storage, actual):
                 log("  |   ⚠️ Reforged 2.0+ target: voices are .ogg there; 1.27 voices are added as .mp3/.wav")
+            unreadable = []
             for i, (name, ckey) in enumerate(present, 1):
                 rel = name[len(prefix):].replace(":", "/")
-                target = casc_folder.joinpath(*rel.split("/"))
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(storage.read_ckey(ckey))
+                # A file can be listed as installed but stored incomplete (interrupted
+                # download): it is skipped and the 1.27 version is used instead.
+                try:
+                    data = storage.read_ckey(ckey)
+                except Exception:
+                    unreadable.append(rel)
+                else:
+                    target = casc_folder.joinpath(*rel.split("/"))
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
                 if i % 200 == 0 or i == len(present):
                     log(f"  |   | 📥 Original {lang} files from target: {i}/{len(present)} ({int(i / len(present) * 100)}%)")
+            if unreadable:
+                log(f"  |   ⚠️ {len(unreadable)} {lang} file(s) of the target are incomplete on disk, "
+                    f"the 1.27 versions are used: " + ", ".join(Path(r).name for r in unreadable[:5])
+                    + (" ..." if len(unreadable) > 5 else ""))
+                present = [(n, c) for n, c in present if n[len(prefix):].replace(":", "/") not in unreadable]
             casc_folder.mkdir(parents=True, exist_ok=True)
             (casc_folder / MARKER).write_text(storage.version, encoding="utf-8")
             locale_files = len(present)
@@ -116,7 +129,11 @@ def prepare_target(game_dir, lang, casc_folder, work_dir, bundled_templates, bun
         for name, rel in TEMPLATE_FILES.items():
             ckey = next((c for k, c in root.items() if k.lower() == (en_prefix + name).lower()), None)
             if ckey is not None and storage.is_present(ckey):
-                (templates_dir / rel).write_bytes(storage.read_ckey(ckey))
+                try:
+                    data = storage.read_ckey(ckey)
+                except Exception:
+                    continue  # incomplete on disk: the bundled 1.31 reference is kept
+                (templates_dir / rel).write_bytes(data)
                 from_target.append(name.split("/")[-1])
         # every other English ui/ and units/ text file of this version (to complete
         # the 1.27 files with the keys added since)
@@ -126,9 +143,13 @@ def prepare_target(game_dir, lang, casc_folder, work_dir, bundled_templates, bun
                 continue
             rel = k[len(en_prefix):].replace(":", "/").lower()
             if rel.endswith((".txt", ".fdf")) and rel.startswith(("ui/", "units/")) and storage.is_present(c):
+                try:
+                    data = storage.read_ckey(c)
+                except Exception:
+                    continue  # incomplete on disk: the bundled reference (if any) is kept
                 dest = templates_dir / "locale_templates" / rel
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(storage.read_ckey(c))
+                dest.write_bytes(data)
                 refs += 1
         if refs:
             from_target.append(f"{refs} ui/units reference files")
