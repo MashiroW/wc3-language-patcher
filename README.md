@@ -127,6 +127,17 @@ For example, the campaign map The Purge was broken due to deprecated AI scriptin
 
 On the localization side, reverse engineering was also necessary because new keys and variables have been added over the years across patches, while others have been removed (especially those used by the World Editor UI). To handle these inconsistencies, the 1,231 strings added after 1.27 (identical for every language) were translated once with context-aware AI translation, using each language's official 1.27 terminology, and are shipped in `translations/`. The patcher therefore needs no online API, no GPU and no large ML model. The few strings left are translated online (on by default, can be turned off in the UI).
 
+**How missing strings are filled (note for maintainers).** Only strings that a 1.27 install does not have are translated; everything else is Blizzard's original text, kept as is. For a French build that is about 1,700 strings out of roughly 22,000.
+
+| Files | Missing strings | Translated by |
+|---|---|---|
+| `ui/worldeditstrings.txt`, `ui/worldeditgamestrings.txt`, `ui/framedef/globalstrings.fdf` | ~1,230 per language | `translations/<lang>.json` (AI, done once, offline) |
+| `ui/triggerstrings.txt`, `units/*.txt`, other `ui/` and `ui/framedef/` files | ~460 per language | online at build time (Google, then MyMemory) |
+| `ui/campaignstrings*.txt` | none | converted from the 1.27 files |
+| `ui/war3skins.txt`, help, ToS and license texts | none | config or plain text, copied from 1.27 |
+
+Both lists are the same for every language: they are the strings Blizzard added between 1.28 and 1.31. With *Translate online* off (or if the online services fail), the second group falls back to the target's English text, or empty. A source older than 1.27 lacks more strings, which also go online. Moving the second group into the JSON files would make builds fully offline; it was left online on purpose.
+
 Additionally, the internal file structure used for campaign and menu localization has changed across versions. This meant that older configuration formats had to be converted into newer formats compatible with the latest game builds—another aspect that required careful inspection and tooling.
 
 ## Credits
